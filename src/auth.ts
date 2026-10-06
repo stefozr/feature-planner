@@ -1,42 +1,49 @@
 import Keycloak from 'keycloak-js'
+import { FULL_ACCESS, accessOf, canEditTeam, rolesOfToken } from '../shared/auth.mjs'
 
-export const ROLE_VIEWER = 'feature-planner-viewer'
-export const ROLE_EDITOR = 'feature-planner-editor'
+export { ROLE_ADMIN, ROLE_VIEWER, editorRole } from '../shared/auth.mjs'
 
 export type Auth = {
   enabled: boolean
-  /** Has at least the viewer role (or auth disabled). */
+  /** has some planner role (or auth disabled): may read every team */
   canView: boolean
-  /** Has the editor role (or auth disabled). */
-  canEdit: boolean
+  /** the admin role (or auth disabled): every team, the Program, team management */
+  isAdmin: boolean
+  /** may write this team's plan: admins, or the holder of `feature-planner-editor:<teamId>`; the Program is admins only */
+  canEditTeam: (teamId: string) => boolean
   userName: string | null
   /** fetch that attaches (and refreshes) the bearer token when auth is enabled. */
   fetch: typeof fetch
   logout: () => void
 }
 
-const noAuth: Auth = {
-  enabled: false,
-  canView: true,
-  canEdit: true,
-  userName: null,
-  fetch: (...args) => fetch(...args),
-  logout: () => {},
-}
+type Access = ReturnType<typeof accessOf>
+
+const fromAccess = (access: Access, rest: Omit<Auth, 'canView' | 'isAdmin' | 'canEditTeam'>): Auth => ({
+  ...rest,
+  canView: access.canView,
+  isAdmin: access.admin,
+  canEditTeam: (teamId) => canEditTeam(access, teamId),
+})
+
+const plainFetch: typeof fetch = (...args) => fetch(...args)
 
 /**
- * Auth off (local dev): everyone edits — unless `localStorage['feature-planner:viewer-preview'] = '1'`,
- * which shows the app exactly as the viewer role sees it. Ignored whenever OIDC is on, because
- * then the roles come from the token.
+ * Auth off (local dev): everyone is an admin — unless the browser asks to preview a role:
+ *   localStorage['feature-planner:preview-roles']  = 'feature-planner-editor:demo'   any roles, comma-separated
+ *   localStorage['feature-planner:viewer-preview'] = '1'                              the viewer role (older key)
+ * Both are ignored whenever OIDC is on, because then the roles come from the token.
  */
 function devAuth(): Auth {
-  let preview = false
+  let access: Access = FULL_ACCESS
   try {
-    preview = localStorage.getItem('feature-planner:viewer-preview') === '1'
+    const preview = localStorage.getItem('feature-planner:preview-roles')
+    if (preview != null && preview.trim() !== '') access = accessOf(preview.split(',').map((r) => r.trim()))
+    else if (localStorage.getItem('feature-planner:viewer-preview') === '1') access = accessOf(['feature-planner-viewer'])
   } catch {
     /* storage blocked: plain no-auth */
   }
-  return preview ? { ...noAuth, canEdit: false } : noAuth
+  return fromAccess(access, { enabled: false, userName: null, fetch: plainFetch, logout: () => {} })
 }
 
 /**
@@ -62,11 +69,8 @@ export async function initAuth(): Promise<Auth> {
   })
   await kc.init({ onLoad: 'login-required', pkceMethod: 'S256', checkLoginIframe: false })
 
-  const roles = new Set([
-    ...(kc.realmAccess?.roles ?? []),
-    ...(kc.resourceAccess?.[cfg.clientId]?.roles ?? []),
-  ])
-  const canEdit = roles.has(ROLE_EDITOR)
+  // the same claims the server reads: realm roles plus every client's roles
+  const access = accessOf(rolesOfToken(kc.tokenParsed))
 
   const authFetch: typeof fetch = async (input, init) => {
     try {
@@ -80,12 +84,11 @@ export async function initAuth(): Promise<Auth> {
     return fetch(input, { ...init, headers })
   }
 
-  return {
+  return fromAccess(access, {
     enabled: true,
-    canView: canEdit || roles.has(ROLE_VIEWER),
-    canEdit,
     userName: (kc.tokenParsed?.preferred_username as string | undefined) ?? null,
     fetch: authFetch,
     logout: () => kc.logout({ redirectUri: window.location.origin }),
-  }
+  })
 }
+

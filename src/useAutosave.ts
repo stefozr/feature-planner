@@ -8,6 +8,8 @@ interface Options {
   auth: Auth
   /** the team's API prefix: `/api/teams/<id>` */
   api: string
+  /** may this user write this team? (shared/auth.mjs canEditTeam); false makes update() a toast */
+  canEdit: boolean
   /** the server answered 404 for this team: someone deleted it */
   onGone: () => void
   /** a short message for the user (the toast) */
@@ -23,7 +25,7 @@ interface Options {
  * onto it and PUTs the merge. A pending save is pushed through on unmount and the browser warns
  * before a tab with one closes. Shared by a team's plan and the Program's.
  */
-export function useAutosave({ auth, api, onGone, notify, settleRef }: Options) {
+export function useAutosave({ auth, api, canEdit, onGone, notify, settleRef }: Options) {
   const [db, setDb] = useState<DB | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -136,8 +138,8 @@ export function useAutosave({ auth, api, onGone, notify, settleRef }: Options) {
 
   const update = useCallback(
     (fn: (d: DB) => void) => {
-      if (!auth.canEdit) {
-        notify('Read-only — editor role required')
+      if (!canEdit) {
+        notify('Read-only — you cannot edit this team')
         return
       }
       setDb((prev) => {
@@ -150,7 +152,7 @@ export function useAutosave({ auth, api, onGone, notify, settleRef }: Options) {
       })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [auth.canEdit],
+    [canEdit],
   )
 
   /** Wait for the autosave to land, so what is fetched next includes the last edit. */

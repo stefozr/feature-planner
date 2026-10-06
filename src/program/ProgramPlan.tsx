@@ -43,6 +43,8 @@ interface Props extends PlanProps {
  */
 export default function ProgramPlan({ auth, team, route, navigate, navigateTeam, theme, onThemeChange, isDark, teamSwitcher, settleRef, onTeamGone, notice }: Props) {
   const api = `/api/teams/${team.id}`
+  // the Program spans every team, so only admins edit its roadmap and notes
+  const canEdit = auth.isAdmin
   const key = (k: string) => `feature-planner:${team.id}:${k}`
   const view: View = route.view
   const todayISO = fmtDate(new Date())
@@ -53,7 +55,7 @@ export default function ProgramPlan({ auth, team, route, navigate, navigateTeam,
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(null), 2500)
   }
-  const { db, update, saveState, settle, replace } = useAutosave({ auth, api, onGone: onTeamGone, notify: showToast, settleRef })
+  const { db, update, saveState, settle, replace } = useAutosave({ auth, api, canEdit, onGone: onTeamGone, notify: showToast, settleRef })
   const { ask: confirm, ui: confirmUI } = useConfirm()
   const [dialog, setDialog] = useState<'settings' | 'releases' | null>(null)
 
@@ -271,7 +273,7 @@ export default function ProgramPlan({ auth, team, route, navigate, navigateTeam,
       <span className="pg-asof">{snapshotError ? 'Could not load the teams' : asOfText}</span>
     </>
   )
-  const readOnly = !auth.canEdit
+  const readOnly = !canEdit
 
   return (
     <div className="app">
@@ -291,14 +293,14 @@ export default function ProgramPlan({ auth, team, route, navigate, navigateTeam,
           </div>
           <span style={{ flex: 1 }} />
           {toast && <span className="toast">{toast}</span>}
-          {auth.canEdit ? (
+          {canEdit ? (
             <span className={`save-state ${saveState}`}>{saveState === 'saved' ? 'Saved' : saveState === 'saving' ? 'Saving…' : 'Save failed'}</span>
           ) : (
-            <span className="save-state" title="You have the viewer role — editing is disabled">
+            <span className="save-state" title="Only admins edit the Program">
               Read-only
             </span>
           )}
-          {auth.canEdit && (
+          {canEdit && (
             <input
               ref={importFileRef}
               type="file"
@@ -318,7 +320,7 @@ export default function ProgramPlan({ auth, team, route, navigate, navigateTeam,
             backups={backups}
             onLoadBackups={loadBackups}
             onDownloadBackup={downloadBackup}
-            canEdit={auth.canEdit}
+            canEdit={canEdit}
             onImport={() => importFileRef.current?.click()}
             onDefaults={() => setDialog('settings')}
             onReleases={() => setDialog('releases')}

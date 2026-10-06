@@ -18,7 +18,8 @@ initAuth()
       root.render(
         <div className="loading">
           Signed in as {auth.userName ?? 'unknown user'}, but no access — ask an admin for the
-          &nbsp;<code>feature-planner-viewer</code> or <code>feature-planner-editor</code> role. <a href="#" onClick={auth.logout}>Log out</a>
+          &nbsp;<code>feature-planner-viewer</code> role, a team's <code>feature-planner-editor:&lt;team&gt;</code> role, or <code>feature-planner-admin</code>.{' '}
+          <a href="#" onClick={auth.logout}>Log out</a>
         </div>,
       )
       return

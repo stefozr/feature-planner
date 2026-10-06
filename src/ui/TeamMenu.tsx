@@ -4,7 +4,8 @@ import { useDropdown } from './useDropdown'
 interface Props {
   team: Team
   teams: Team[]
-  canEdit: boolean
+  /** admins: create, rename and delete teams from here */
+  canManage: boolean
   onSwitch: (id: string) => void
   /** the list is refreshed every time the menu opens, so a team created elsewhere shows up */
   onOpen: () => void
@@ -12,8 +13,8 @@ interface Props {
   onManage: () => void
 }
 
-/** The header's team switcher: the Program first, then every team, the current one marked; editors also create and manage teams here. */
-export default function TeamMenu({ team, teams, canEdit, onSwitch, onOpen, onNew, onManage }: Props) {
+/** The header's team switcher: the Program first, then every team, the current one marked; admins also create and manage teams here. */
+export default function TeamMenu({ team, teams, canManage, onSwitch, onOpen, onNew, onManage }: Props) {
   const { open, setOpen, ref } = useDropdown()
   const pick = (action: () => void) => () => {
     action()
@@ -49,7 +50,7 @@ export default function TeamMenu({ team, teams, canEdit, onSwitch, onOpen, onNew
             </>
           )}
           {others.map((t) => row(t, `${t.features} feature${t.features === 1 ? '' : 's'} · ${t.people} ${t.people === 1 ? 'person' : 'people'}`, `#/${t.id}`))}
-          {canEdit && (
+          {canManage && (
             <>
               <div className="menu-sep" />
               <button className="menu-item" title="A new team with an empty plan; its settings can be copied from an existing team" onClick={pick(onNew)}>

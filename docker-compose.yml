@@ -3,10 +3,12 @@
 #   docker compose up -d          # start Keycloak (http://localhost:8080, admin/admin)
 #   OIDC_ISSUER=http://localhost:8080/realms/feature-planner npm run dev
 #
-# The feature-planner realm (feature-planner client, feature-planner-viewer /
-# feature-planner-editor roles, test users viewer/viewer and editor/editor) is
-# imported on first start from the inline config below — no bind mounts,
-# so it works regardless of Docker file-sharing settings.
+# The feature-planner realm (feature-planner client; the roles feature-planner-admin,
+# feature-planner-viewer and one feature-planner-editor:<team-id> per demo team; test users
+# admin/admin, editor/editor — editor of the Demo team only — and viewer/viewer) is
+# imported on first start from the inline config below — no bind mounts, so it works
+# regardless of Docker file-sharing settings. Changed the realm? `docker compose down -v`
+# first: the import only runs into an empty Keycloak.
 services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.3
@@ -34,8 +36,11 @@ configs:
         "enabled": true,
         "roles": {
           "realm": [
-            { "name": "feature-planner-viewer", "description": "Read-only access to the plan" },
-            { "name": "feature-planner-editor", "description": "Full read/write access" }
+            { "name": "feature-planner-admin", "description": "Everything: every team, the Program, team management" },
+            { "name": "feature-planner-viewer", "description": "Read-only access to every team" },
+            { "name": "feature-planner-editor:demo", "description": "Edit the Demo team's plan" },
+            { "name": "feature-planner-editor:mobile-apps", "description": "Edit the Mobile apps team's plan" },
+            { "name": "feature-planner-editor:data-platform", "description": "Edit the Data platform team's plan" }
           ]
         },
         "clients": [
@@ -73,7 +78,17 @@ configs:
             "email": "editor@example.com",
             "emailVerified": true,
             "credentials": [{ "type": "password", "value": "editor", "temporary": false }],
-            "realmRoles": ["feature-planner-editor"]
+            "realmRoles": ["feature-planner-editor:demo"]
+          },
+          {
+            "username": "admin",
+            "enabled": true,
+            "firstName": "Ada",
+            "lastName": "Admin",
+            "email": "admin@example.com",
+            "emailVerified": true,
+            "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+            "realmRoles": ["feature-planner-admin"]
           }
         ]
       }

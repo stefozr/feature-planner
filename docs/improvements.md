@@ -56,10 +56,10 @@ Each PUT runs `store.backup(team, 'daily')`, which parses the whole stored row a
 No polling, no push. Viewers and idle editors see other people's saves and the calendar sync only after a reload or a 409. A cheap version poll (`HEAD /api/data` returning `X-Data-Version`, or `If-None-Match`) or SSE would do.
 
 ### 13. Constants still duplicated across server and client — S
-Role names (`src/auth.ts` vs `server/index.mjs`), and now the team-id rule and the reserved ids (`server/store.mjs` vs `src/ui/useHashRoute.ts`). Move them into `shared/db.mjs` next to the status, customer and colour defaults (the hours-per-week default already lives there). The name matching already moved to `shared/names.mjs` for the sheet import.
+The team-id rule and the reserved ids (`server/store.mjs` vs `src/ui/useHashRoute.ts`). Move them into `shared/db.mjs` next to the status, customer and colour defaults (the hours-per-week default already lives there). The role names and the access rules already moved to `shared/auth.mjs`, the name matching to `shared/names.mjs`.
 
-### 13a. Team-level roles — M
-Every team is visible and editable to everyone with the global roles. A department with teams that should not edit each other's plans needs per-team roles (`feature-planner-editor:<team>`, say), checked in `requireRole` per `/api/teams/:id` route and reflected in the switcher. The store and the client are already per team, so this is an auth-only change.
+### 13a. Team-level roles — done
+Admin, per-team editor (`feature-planner-editor:<team>`) and viewer, in `shared/auth.mjs`, checked per `/api/teams/:id` write on the server and reflected in the header badge and the switcher. Left open: the switcher does not yet mark which teams the user can edit, and a deleted team leaves its editor role behind in Keycloak.
 
 ## Low
 

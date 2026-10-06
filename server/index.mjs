@@ -8,6 +8,7 @@ import { applyCalendar, parseIcs, resolveCalendarUrl } from './vacations.mjs'
 import { migrate } from './schema.mjs'
 import { StoreError, openStore } from './store.mjs'
 import { PROGRAM_ID, payloadProblem } from '../shared/db.mjs'
+import { FULL_ACCESS, accessOf, canEditTeam, editorRole, rolesOfToken } from '../shared/auth.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // DATA_DIR: where the database and its backups live (default ../data; the Docker image mounts /app/data)
@@ -62,25 +63,23 @@ for (const t of store.listTeams()) {
 // ----- optional OIDC auth (Keycloak) -----
 // Enabled when OIDC_ISSUER is set at server start, e.g.:
 //   OIDC_ISSUER=https://keycloak.example.com/realms/myrealm OIDC_CLIENT_ID=feature-planner node server/index.mjs
-// Roles (realm or client roles on the access token), the same for every team:
-// 'feature-planner-viewer' (read) and 'feature-planner-editor' (read + write, manage teams).
+// Roles (realm or client roles on the access token), see shared/auth.mjs:
+//   feature-planner-admin             everything, every team, the Program, team management
+//   feature-planner-editor:<team-id>  write that team's plan; read everything
+//   feature-planner-viewer            read everything
+// `authenticate` runs on every /api route but /api/auth/config and leaves `req.access` behind;
+// the three guards below read it. With auth off everyone is an admin.
 const OIDC_ISSUER = process.env.OIDC_ISSUER?.replace(/\/$/, '')
 const OIDC_CLIENT_ID = process.env.OIDC_CLIENT_ID || 'feature-planner'
 const OIDC_AUDIENCE = process.env.OIDC_AUDIENCE // optional extra check
-const ROLE_VIEWER = 'feature-planner-viewer'
-const ROLE_EDITOR = 'feature-planner-editor'
 
-let requireRole = () => (_req, _res, next) => next()
+let authenticate = (req, _res, next) => {
+  req.access = FULL_ACCESS
+  next()
+}
 if (OIDC_ISSUER) {
   const jwks = createRemoteJWKSet(new URL(`${OIDC_ISSUER}/protocol/openid-connect/certs`))
-  const rolesOf = (payload) => {
-    const roles = new Set(payload.realm_access?.roles ?? [])
-    for (const client of Object.values(payload.resource_access ?? {})) {
-      for (const r of client.roles ?? []) roles.add(r)
-    }
-    return roles
-  }
-  requireRole = (role) => async (req, res, next) => {
+  authenticate = async (req, res, next) => {
     const m = /^Bearer (.+)$/i.exec(req.headers.authorization ?? '')
     if (!m) return res.status(401).json({ error: 'missing bearer token' })
     try {
@@ -88,11 +87,9 @@ if (OIDC_ISSUER) {
         issuer: OIDC_ISSUER,
         ...(OIDC_AUDIENCE ? { audience: OIDC_AUDIENCE } : {}),
       })
-      const roles = rolesOf(payload)
-      // editor implies viewer
-      const ok = role === ROLE_VIEWER ? roles.has(ROLE_VIEWER) || roles.has(ROLE_EDITOR) : roles.has(role)
-      if (!ok) return res.status(403).json({ error: `role '${role}' required` })
+      const roles = rolesOfToken(payload)
       req.user = { sub: payload.sub, name: payload.preferred_username, roles: [...roles] }
+      req.access = accessOf(roles)
       next()
     } catch {
       res.status(401).json({ error: 'invalid token' })
@@ -101,12 +98,25 @@ if (OIDC_ISSUER) {
   console.log(`OIDC auth enabled (issuer: ${OIDC_ISSUER}, client: ${OIDC_CLIENT_ID})`)
 }
 
+/** any planner role: read everything */
+const requireView = (req, res, next) => (req.access.canView ? next() : res.status(403).json({ error: 'no access — a feature-planner role is required' }))
+/** team management and the Program: admins only */
+const requireAdmin = (req, res, next) => (req.access.admin ? next() : res.status(403).json({ error: 'admin role required' }))
+/** after withTeam: write this team's plan — admins, or the holder of its editor role */
+const requireTeamEdit = (req, res, next) =>
+  canEditTeam(req.access, req.team.id)
+    ? next()
+    : res.status(403).json({
+        error: req.team.id === PROGRAM_ID ? 'only admins can edit the Program' : `you cannot edit team "${req.team.name}" — role '${editorRole(req.team.id)}' required`,
+      })
+
 const app = express()
 app.use(express.json({ limit: '10mb' }))
 
 app.get('/api/auth/config', (_req, res) => {
   res.json({ enabled: !!OIDC_ISSUER, issuer: OIDC_ISSUER ?? null, clientId: OIDC_CLIENT_ID })
 })
+app.use('/api', authenticate) // everything below carries req.access
 
 // ----- teams -----
 // A StoreError carries its HTTP status (400 bad name, 404 unknown team, 409 duplicate name / last team).
@@ -119,12 +129,12 @@ const storeErrors = (fn) => (req, res) => {
   }
 }
 
-app.get('/api/teams', requireRole(ROLE_VIEWER), (_req, res) => res.json(store.listTeams()))
+app.get('/api/teams', requireView, (_req, res) => res.json(store.listTeams()))
 
 // The Program team's view of the others: every team but Program, in switcher order, each with its
 // whole current document and version, in one round-trip. The client does the aggregation (the
 // capacity, schedule and roadmap maths live in src/), so it needs the documents, not summaries.
-app.get('/api/program/teams', requireRole(ROLE_VIEWER), (_req, res) => {
+app.get('/api/program/teams', requireView, (_req, res) => {
   const teams = store
     .listTeams()
     .filter((t) => t.id !== PROGRAM_ID)
@@ -137,7 +147,7 @@ app.get('/api/program/teams', requireRole(ROLE_VIEWER), (_req, res) => {
 
 app.post(
   '/api/teams',
-  requireRole(ROLE_EDITOR),
+  requireAdmin,
   storeErrors((req, res) => {
     const { name, copySettingsFrom } = req.body ?? {}
     res.status(201).json(store.createTeam({ name, copySettingsFrom }))
@@ -154,14 +164,14 @@ const withTeam = (req, res, next) => {
 
 app.patch(
   '/api/teams/:id',
-  requireRole(ROLE_EDITOR),
+  requireAdmin,
   withTeam,
   storeErrors((req, res) => res.json(store.renameTeam(req.team.id, req.body?.name))),
 )
 
 app.delete(
   '/api/teams/:id',
-  requireRole(ROLE_EDITOR),
+  requireAdmin,
   withTeam,
   storeErrors((req, res) => {
     store.deleteTeam(req.team.id) // snapshots the plan to its backups first
@@ -172,14 +182,14 @@ app.delete(
 
 // ----- the plan document -----
 
-app.get('/api/teams/:id/data', requireRole(ROLE_VIEWER), withTeam, (req, res) => {
+app.get('/api/teams/:id/data', requireView, withTeam, (req, res) => {
   const row = store.readRow(req.team.id)
   // send the stored bytes verbatim (no reparse) and hand the client the version to echo on PUT
   res.set('X-Data-Version', String(row.version))
   res.type('application/json').send(row.doc)
 })
 
-app.put('/api/teams/:id/data', requireRole(ROLE_EDITOR), withTeam, (req, res) => {
+app.put('/api/teams/:id/data', withTeam, requireTeamEdit, (req, res) => {
   const body = req.body
   // shared/db.mjs — an import is checked in full (the client ran the same check before uploading);
   // an autosave skips the reference checks so a database that already carries a stale id keeps saving
@@ -207,7 +217,7 @@ app.put('/api/teams/:id/data', requireRole(ROLE_EDITOR), withTeam, (req, res) =>
   res.json({ ok: true, version })
 })
 
-app.get('/api/teams/:id/backups', requireRole(ROLE_VIEWER), withTeam, (req, res) => {
+app.get('/api/teams/:id/backups', requireView, withTeam, (req, res) => {
   const files = store
     .backupFiles(req.team.id) // oldest-first by mtime
     .reverse()
@@ -215,7 +225,7 @@ app.get('/api/teams/:id/backups', requireRole(ROLE_VIEWER), withTeam, (req, res)
   res.json(files)
 })
 
-app.get('/api/teams/:id/backups/:name', requireRole(ROLE_VIEWER), withTeam, (req, res) => {
+app.get('/api/teams/:id/backups/:name', requireView, withTeam, (req, res) => {
   const file = store.backupPath(req.team.id, req.params.name)
   if (!file) return res.status(404).json({ error: 'not found' })
   res.download(file, path.basename(file))
@@ -295,12 +305,12 @@ function syncVacations(teamId, reason) {
   return state.inFlight
 }
 
-app.get('/api/teams/:id/vacations/status', requireRole(ROLE_VIEWER), withTeam, (req, res) => {
+app.get('/api/teams/:id/vacations/status', requireView, withTeam, (req, res) => {
   const url = calendarUrl(req.team.id)
   res.json({ enabled: !!url, url: url || null, intervalHours: VACATION_SYNC_HOURS, lastSync: vacationState(req.team.id).lastSync })
 })
 
-app.post('/api/teams/:id/vacations/sync', requireRole(ROLE_EDITOR), withTeam, async (req, res) => {
+app.post('/api/teams/:id/vacations/sync', withTeam, requireTeamEdit, async (req, res) => {
   if (!calendarUrl(req.team.id)) return res.status(404).json({ error: 'vacation calendar not configured — add the link under ⚙ Settings → Settings…' })
   const result = await syncVacations(req.team.id, 'manual')
   res.set('X-Data-Version', String(store.currentVersion(req.team.id)))

@@ -187,7 +187,7 @@ export default function App({ auth }: { auth: Auth }) {
     <TeamMenu
       team={team}
       teams={teams}
-      canEdit={auth.canEdit}
+      canManage={auth.isAdmin}
       onSwitch={(id) => void switchTeam(id)}
       onOpen={() => void loadTeams()}
       onNew={() => setDialog('new')}

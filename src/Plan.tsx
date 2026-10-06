@@ -13,7 +13,7 @@ import { EpicDialog, FeatureDialog, ReleasesDialog, newFeatureDraft } from './ui
 import FilterBar from './ui/FilterBar'
 import SettingsMenu from './ui/SettingsMenu'
 import { buildFeatureTree, expandAll, expandToDepth, featureSearchText, groupKey, sameExpansion, treeLevels } from './rows'
-import type { Auth } from './auth'
+import { editorRole, type Auth } from './auth'
 import { usePersisted } from './ui/usePersisted'
 import type { JumpTarget, Route, View, ViewRoute } from './ui/useHashRoute'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -79,6 +79,8 @@ type Theme = 'light' | 'dark' | 'system'
 export default function Plan({ auth, team, route, navigate, theme, onThemeChange, isDark, teamSwitcher, settleRef, onTeamGone, notice }: PlanProps) {
   // the API prefix of this team's plan, backups and calendar sync
   const api = `/api/teams/${team.id}`
+  // admins, or the holder of this team's editor role; everyone else browses read-only
+  const canEdit = auth.canEditTeam(team.id)
   // per-browser UI state that names this team's data (filters hold release and person ids, the
   // expansion holds package ids) is stored under the team, so switching never carries it over
   const teamKey = (key: string) => `feature-planner:${team.id}:${key}`
@@ -127,7 +129,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
     toastTimer.current = setTimeout(() => setToast(null), 2500)
   }
   // the document, its autosave, the 409 rebase and the unmount flush
-  const { db, update, saveState, settle, busy, adoptServerDoc, replace } = useAutosave({ auth, api, onGone: onTeamGone, notify: showToast, settleRef })
+  const { db, update, saveState, settle, busy, adoptServerDoc, replace } = useAutosave({ auth, api, canEdit, onGone: onTeamGone, notify: showToast, settleRef })
 
   // What the server's last pull of the shared vacation calendar did; the People dialog uses it to
   // say who the calendar does not know. null until answered — the sync item stays offered until
@@ -416,10 +418,10 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
     () => ({
       openFeature: (featureId) => setDialog({ kind: 'feature', featureId }),
       openEpic: (epicId) => setDialog({ kind: 'epic', epicId }),
-      newFeature: (epicId) => auth.canEdit && setDialog({ kind: 'newFeature', epicId }),
+      newFeature: (epicId) => canEdit && setDialog({ kind: 'newFeature', epicId }),
       openPerson: (personId) => setDialog({ kind: 'people', personId }),
     }),
-    [auth.canEdit],
+    [canEdit],
   )
   // a dialog left open on one view must not reappear over the next after a tab switch or Back
   useEffect(() => setDialog(null), [route.view])
@@ -674,7 +676,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
             db={db}
             feature={feature}
             create={create}
-            readOnly={!auth.canEdit}
+            readOnly={!canEdit}
             hideResigned={hideResigned}
             onClose={() => setDialog(null)}
             onSave={(next) =>
@@ -710,7 +712,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
           <EpicDialog
             epic={epic}
             create={create}
-            readOnly={!auth.canEdit}
+            readOnly={!canEdit}
             featureCount={db.features.filter((f) => f.epicId === epic.id).length}
             storyCount={db.stories.filter((s) => db.features.some((f) => f.id === s.featureId && f.epicId === epic.id)).length}
             onClose={() => setDialog(null)}
@@ -738,7 +740,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
             db={db}
             profiles={settings.profiles}
             initialPersonId={dialog.personId}
-            readOnly={!auth.canEdit}
+            readOnly={!canEdit}
             calendar={calendar}
             today={todayISO}
             hideResigned={hideResigned}
@@ -814,16 +816,16 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
           </div>
           <span style={{ flex: 1 }} />
           {toast && <span className="toast">{toast}</span>}
-          {auth.canEdit ? (
+          {canEdit ? (
             <span className={`save-state ${saveState}`}>
               {saveState === 'saved' ? 'Saved' : saveState === 'saving' ? 'Saving…' : 'Save failed'}
             </span>
           ) : (
-            <span className="save-state" title="You have the viewer role — editing is disabled">
+            <span className="save-state" title={`You cannot edit this team — ask an admin for the ${editorRole(team.id)} role`}>
               Read-only
             </span>
           )}
-          {auth.canEdit && (
+          {canEdit && (
             <>
               <input
                 ref={importFileRef}
@@ -862,7 +864,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
             backups={backups}
             onLoadBackups={loadBackups}
             onDownloadBackup={downloadBackup}
-            canEdit={auth.canEdit}
+            canEdit={canEdit}
             onImport={() => importFileRef.current?.click()}
             onDefaults={() => setDialog({ kind: 'settings' })}
             onReleases={() => setDialog({ kind: 'releases' })}
@@ -932,7 +934,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
               )}
             </div>
             {filterBar()}
-            {auth.canEdit && (
+            {canEdit && (
               <button className="btn small" title="Import a Jira export (Excel or CSV) into these columns" onClick={() => sheetFileRef.current?.click()}>
                 Import sheet…
               </button>
@@ -951,7 +953,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
           onScopeFeature={(id) => jumpToPlanner({ feature: id }, { view: 'capacity', at: 'scope' })}
           onScopeEpic={(id) => jumpToPlanner({ epic: id }, { view: 'capacity', at: 'scope' })}
           scrollTo={route.view === 'capacity' ? route.at ?? null : null}
-          readOnly={!auth.canEdit}
+          readOnly={!canEdit}
           onMarkAway={ops.addAway}
           onEditPerson={cb.openPerson}
         />
@@ -962,7 +964,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
           searching={searching}
           todayISO={todayISO}
           hideResigned={hideResigned}
-          readOnly={!auth.canEdit}
+          readOnly={!canEdit}
           ops={ops}
           onOpenFeature={cb.openFeature}
           onGoFeature={(id) => jumpToPlanner({ feature: id }, { view: 'status' })}
@@ -971,7 +973,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
           onSetClosed={(id, fold) => setStatusClosed((prev) => (fold ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((x) => x !== id)))}
         />
       ) : view === 'roadmap' ? (
-        <GanttView db={paintDb} todayISO={todayISO} colorOf={colorOf} readOnly={!auth.canEdit} showPlanned={showPlanned} onShowPlanned={setShowPlanned} update={update} />
+        <GanttView db={paintDb} todayISO={todayISO} colorOf={colorOf} readOnly={!canEdit} showPlanned={showPlanned} onShowPlanned={setShowPlanned} update={update} />
       ) : (
         <>
           <FeatureGrid
@@ -992,7 +994,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
             focusRequest={focusRequest}
             ops={ops}
             cb={cb}
-            readOnly={!auth.canEdit}
+            readOnly={!canEdit}
             colorOf={colorOf}
           />
           <footer className="statusbar">
@@ -1003,7 +1005,7 @@ export default function Plan({ auth, team, route, navigate, theme, onThemeChange
                 <span className="gbar-key gap slip" /> past the planned end · <span className="gbar-key gap early" /> finished early · ✓ finished
               </span>
             )}
-            {auth.canEdit ? (
+            {canEdit ? (
               <>
                 <span className="hint">Click a cell to select it, click it again (or double-click) to add people — drag across weeks to select a range</span>
                 <span className="hint">
