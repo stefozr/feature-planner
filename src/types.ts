@@ -303,6 +303,15 @@ export interface Settings {
   importMapping?: ImportMapping
 }
 
+/**
+ * The Program team's own layer over the other teams' features: its risks, dependencies and
+ * comment per feature, keyed `<teamId>:<featureId>` (see src/program/aggregate.ts programKey).
+ * Only the Program document carries this.
+ */
+export interface ProgramData {
+  tracking: Record<string, FeatureTracking>
+}
+
 export interface DB {
   people: Person[]
   /** array order = display order */
@@ -316,6 +325,8 @@ export interface DB {
   workstreams: GanttItem[]
   settings: Settings
   schemaVersion?: number
+  /** the Program team only: its notes on other teams' features */
+  program?: ProgramData
 }
 
 export const statusKey = (s: string | undefined): string => (s ?? '').toLowerCase().replace(/[^a-z]/g, '')
@@ -328,3 +339,19 @@ export const isBlockedStatus = (s: string | undefined): boolean => statusKey(s) 
 export type GroupBy = 'none' | 'release' | 'status' | 'lead' | 'customer'
 
 export type ClipboardData = { sourceLabel: string; cells: (WeekCell | null)[] }
+
+/**
+ * GET /api/teams. Every team's plan is a separate document; `id` is the slug the URL hash carries
+ * (`#/<id>/planner`) and never changes, `name` is what the switcher shows and can be renamed.
+ */
+export interface Team {
+  id: string
+  name: string
+  position: number
+  createdAt: string
+  /** the plan's counts, for the switcher and the delete confirm */
+  features: number
+  people: number
+  /** the built-in Program team, which aggregates every other team and cannot be deleted */
+  builtin?: boolean
+}

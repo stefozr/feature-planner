@@ -1075,10 +1075,13 @@ export function SettingsDialog({
   settings,
   onSave,
   onClose,
+  program = false,
 }: {
   settings: Settings
   onSave: (settings: Partial<Settings>) => void
   onClose: () => void
+  /** the Program team: no people, features or calendar of its own, so only the timeline and the roadmap colours apply */
+  program?: boolean
 }) {
   const [projectStart, setProjectStart] = useState(settings.projectStart)
   const [horizonWeeks, setHorizonWeeks] = useState(settings.horizonWeeks)
@@ -1100,7 +1103,7 @@ export function SettingsDialog({
 
   return (
     <Modal title="Settings" onClose={onClose} className="settings-modal" storageKey="settings2">
-      <SettingsRow title="Project" desc="The plan's first week, how far it runs, and what one person-week is worth.">
+      <SettingsRow title="Project" desc={program ? "The Program roadmap's first week and how far it runs by default; the axis widens to cover every team." : "The plan's first week, how far it runs, and what one person-week is worth."}>
         <div className="form-grid">
           <label className="field">
             Project start
@@ -1115,22 +1118,28 @@ export function SettingsDialog({
             <input type="number" min={1} value={horizonWeeks} onChange={(e) => setHorizonWeeks(Number(e.target.value))} />
             <span className="settings-help">Weeks the grid shows; it extends when work is booked later.</span>
           </label>
-          <label className="field">
-            Hours per person-week
-            <input type="number" min={1} value={hoursPerWeek} onChange={(e) => setHoursPerWeek(Number(e.target.value))} />
-            <span className="settings-help">What a person at 100% books on a feature in one week ({hoursPerWeek}h). Balance = estimate − booked hours.</span>
-          </label>
+          {!program && (
+            <label className="field">
+              Hours per person-week
+              <input type="number" min={1} value={hoursPerWeek} onChange={(e) => setHoursPerWeek(Number(e.target.value))} />
+              <span className="settings-help">What a person at 100% books on a feature in one week ({hoursPerWeek}h). Balance = estimate − booked hours.</span>
+            </label>
+          )}
         </div>
       </SettingsRow>
+      {!program && (
       <SettingsRow
         title="Feature statuses"
         desc="The workflow a feature moves through. Closed and Rejected count as finished; Blocked feeds the Capacity tab's Needs attention list. Drag to reorder, click a swatch to recolour."
       >
         <ChipListEditor items={statuses} onChange={setStatuses} placeholder="Add status…" reorderable colorOf={colorOf('featureStatuses')} onColorChange={setColor('featureStatuses')} />
       </SettingsRow>
+      )}
+      {!program && (
       <SettingsRow title="Customers" desc="Who a feature is for — a Group-by option and a filter in the planner. Tags take the colour set here.">
         <ChipListEditor items={customers} onChange={setCustomers} placeholder="Add customer…" reorderable colorOf={colorOf('customers')} onColorChange={setColor('customers')} />
       </SettingsRow>
+      )}
       <SettingsRow title="Roadmap status colours" desc="The Roadmap paints its bars and legend in these; a bar can still be given its own colour.">
         <div className="chip-list">
           {ROADMAP_STATUSES.map((v) => (
@@ -1141,13 +1150,18 @@ export function SettingsDialog({
           ))}
         </div>
       </SettingsRow>
+      {!program && (
       <SettingsRow title="Profiles" desc="Roles offered in the People dialog.">
         <ChipListEditor items={profiles} onChange={setProfiles} placeholder="Add profile…" />
       </SettingsRow>
+      )}
+      {!program && (
       <SettingsRow title="Link categories" desc="How a feature's links are grouped in its dialog. Drag to reorder.">
         <ChipListEditor items={linkCategories} onChange={setLinkCategories} placeholder="Add link category…" reorderable />
         <p className="settings-help">Removing a value from any of these lists doesn't touch the features that use it — they keep it, and it stays selectable for them until changed.</p>
       </SettingsRow>
+      )}
+      {!program && (
       <SettingsRow title="Vacation calendar" desc="The server pulls this public .ics feed on start, every few hours and on ⚙ Settings → Sync vacations now, and writes the away periods.">
         <label className="field">
           Public calendar link (.ics)
@@ -1163,13 +1177,18 @@ export function SettingsDialog({
         <p className="settings-help">An event with no name, or a National holiday shared by most of the calendar, is a public holiday for everyone.</p>
         <p className="settings-help">Leave empty to switch the sync off.</p>
       </SettingsRow>
+      )}
       <div className="modal-actions">
         <button className="btn" onClick={onClose}>Cancel</button>
         <button
           className="btn primary"
           disabled={!valid}
           onClick={() => {
-            onSave({ projectStart, horizonWeeks, hoursPerWeek, profiles, featureStatuses: statuses, customers, linkCategories, optionColors: colors, calendarUrl: calendarUrl.trim() || undefined })
+            onSave(
+              program
+                ? { projectStart, horizonWeeks, optionColors: colors }
+                : { projectStart, horizonWeeks, hoursPerWeek, profiles, featureStatuses: statuses, customers, linkCategories, optionColors: colors, calendarUrl: calendarUrl.trim() || undefined },
+            )
             onClose()
           }}
         >

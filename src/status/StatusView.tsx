@@ -426,7 +426,7 @@ function NewStoryInput({ onAdd, onClose }: { onAdd: (name: string) => void; onCl
  * window listener before the Popover's own (a child's effect subscribes first), so the close that
  * follows knows not to save.
  */
-function TextPopover({ x, y, label, value, onCommit, onClose }: { x: number; y: number; label: string; value: string; onCommit: (v: string) => void; onClose: () => void }) {
+export function TextPopover({ x, y, label, value, onCommit, onClose }: { x: number; y: number; label: string; value: string; onCommit: (v: string) => void; onClose: () => void }) {
   const [draft, setDraft] = useState(value)
   const draftRef = useRef(draft)
   draftRef.current = draft

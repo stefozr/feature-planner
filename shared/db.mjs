@@ -47,6 +47,12 @@ export const COLOR_DEFAULTS = {
   },
 }
 export const KINDS = ['dev', 'test', 'buffer']
+/**
+ * The id of the built-in Program team: the one team that holds no people or features of its own
+ * but reads every other team's plan. The server creates it at startup; nobody can delete it or
+ * take its slug.
+ */
+export const PROGRAM_ID = 'program'
 
 /** @param {unknown} v */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -108,6 +114,17 @@ export function payloadProblem(input, { references = true } = {}) {
     }
     if (s.optionColors != null && !isObj(s.optionColors)) return 'settings.optionColors is not an object'
     if (s.importMapping != null && !isObj(s.importMapping)) return 'settings.importMapping is not an object'
+  }
+  // the Program team's own notes on other teams' features, keyed "<team>:<feature>"
+  if (db.program != null) {
+    if (!isObj(db.program)) return 'program is not an object'
+    if (db.program.tracking != null) {
+      if (!isObj(db.program.tracking)) return 'program.tracking is not an object'
+      for (const [k, t] of Object.entries(db.program.tracking)) {
+        if (!isObj(t)) return `program.tracking["${k}"] is not an object`
+        for (const f of ['risks', 'blockers', 'comment']) if (t[f] != null && typeof t[f] !== 'string') return `program.tracking["${k}"].${f} is not a string`
+      }
+    }
   }
 
   /**

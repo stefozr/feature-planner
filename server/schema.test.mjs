@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { SCHEMA_VERSION, migrate, normalize } from './schema.mjs'
-import { STATUS_DEFAULTS } from '../shared/db.mjs'
+import { STATUS_DEFAULTS, payloadProblem } from '../shared/db.mjs'
 
 /** a v3 document the way the app wrote it before hours, customers and the Jira statuses */
 const v3 = () => ({
@@ -97,4 +97,15 @@ test('normalize: a customers list is seeded from the values in use, else the def
   assert.ok(fresh.settings.customers.length > 0)
   assert.equal('hoursPerSP' in fresh.settings, false)
   assert.equal(fresh.settings.hoursPerWeek, 30)
+})
+
+test('a Program document keeps its program.tracking through migrate and the payload check', () => {
+  const doc = { schemaVersion: SCHEMA_VERSION, settings: {}, people: [], epics: [], features: [], program: { tracking: { 'demo:f1': { comment: 'escalated', blockers: 'vendor' } } } }
+  migrate(doc)
+  assert.deepEqual(doc.program, { tracking: { 'demo:f1': { comment: 'escalated', blockers: 'vendor' } } })
+  assert.equal(payloadProblem(doc), null)
+  assert.equal(payloadProblem({ ...doc, program: 1 }), 'program is not an object')
+  assert.equal(payloadProblem({ ...doc, program: { tracking: [] } }), 'program.tracking is not an object')
+  assert.equal(payloadProblem({ ...doc, program: { tracking: { x: 'str' } } }), 'program.tracking["x"] is not an object')
+  assert.equal(payloadProblem({ ...doc, program: { tracking: { x: { risks: 3 } } } }), 'program.tracking["x"].risks is not a string')
 })

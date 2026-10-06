@@ -2,7 +2,7 @@
 
 ## Document (`src/types.ts`)
 
-The whole database is one JSON document: `GET/PUT /api/data`, stored in a single SQLite row. Every collection is a flat array addressed by id, and array order is display order.
+Each team's plan is one JSON document of this shape: `GET/PUT /api/teams/<team>/data`, stored in its own SQLite row (see [Teams](#teams-serverstoremjs)). Every collection is a flat array addressed by id, and array order is display order.
 
 Naming: an `Epic` is the top level (`PKG-100 Customer onboarding`); its `features[]` are what gets planned week by week; a feature's `stories[]` are the Status tab's finer grain. The route key is `?epic=`.
 
@@ -36,6 +36,17 @@ Every edit is an id-keyed closure passed to `update()` in `App.tsx`. That is wha
 | 4 | `estimate`/`remaining` are hours (× the old `hoursPerSP`, default 4, then the setting is dropped); `completedWeek` folds into an empty `endWeek` and is dropped; `tracking` keeps only `risks`, `blockers`, `comment`; the default statuses are the Jira set (`Not started → New`, `Clarify → Analyzing`, `In progress`/`Code review → In Progress`, `Testing → Need Verification`, `Done → Closed`; custom statuses stay); `customers` seeded; `Person.aliases` dropped |
 
 `stories[]` arrived without a version bump: nothing is rewritten, `normalize()` fills the missing array, and a file from before it imports unchanged.
+
+## Teams (`server/store.mjs`)
+
+Two tables: `teams (id, name UNIQUE COLLATE NOCASE, position, created_at)` and `docs (team_id → doc, version, updated_at)`. Nothing inside a document refers to a team; the document is the unit of everything — validation, migration, concurrency (`version`, echoed as `X-Data-Version`), backups (`data/backups/<team>/`) and the vacation sync (its own `settings.calendarUrl`, with `VACATION_CALENDAR_URL` as every team's fallback).
+
+- **id** = `slugify(name)` at creation: accents folded, lower case, runs of other characters become one dash, at most 40 characters (`^[a-z0-9][a-z0-9-]{0,39}$`), `-2`, `-3`… on a collision; `planner`, `capacity`, `status`, `roadmap` and `api` are reserved so a hash without a team still parses. The id never changes; `name` is renamable and unique case-insensitively.
+- **A new team** is `{ people: [], epics: [], features: [], stories: [], releases: [], milestones: [], workstreams: [], settings }` run through `migrate()`, where `settings` is empty (so `normalize()` seeds the defaults) or the `COPIED_SETTINGS` — `projectStart`, `horizonWeeks`, `hoursPerWeek`, `profiles`, `featureStatuses`, `customers`, `optionColors`, `linkCategories` — deep-copied from another team. `calendarUrl` and `importMapping` are never copied.
+- **Delete** snapshots the plan (`…-delete.json`) and removes both rows; the last real team is refused (409), and so is the Program.
+- **The Program** (`PROGRAM_ID = 'program'` in `shared/db.mjs`) is created by `ensureProgram()` on every start when missing: a standard empty document plus `program: { tracking: {} }`, named "Program" (or "Program (all teams)" when that name is taken). `listTeams()` flags it `builtin`; `program` is reserved like the view names; it is never a `copySettingsFrom` source and the vacation sync skips it. `GET /api/program/teams` returns every other team `{ id, name, position, version, doc }` in switcher order. Its document's extra key `program.tracking` — `{ "<teamId>:<featureId>": { risks?, blockers?, comment? } }` — is checked by `payloadProblem` and left alone by `normalize` / `migrate`.
+- **Legacy move** (`migrateLegacy`): a database with the pre-teams `store (id = 1)` table becomes team `default` / "Default" with the row's version and timestamp, the table is dropped, and the root-level `db-*.json` backups move into `backups/default/`. A database with no team at all is seeded once (`seedIfEmpty`): "Demo team" (`demo`) from `server/seed.json` plus the teams in `server/seed-teams.json` ("Mobile apps", "Data platform"), in one transaction; or only "Default" from a pre-SQLite `data/db.json`.
+- **Browser side**: the hash is `#/<team>/<view>…` (`src/ui/useHashRoute.ts`, `parseHash` also accepts the old team-less form); `src/App.tsx` resolves the team (hash → the browser's last team → the first real team) and remounts `src/Plan.tsx` — or `src/program/ProgramPlan.tsx` for the Program — with `key={team.id}`, so every piece of plan state starts fresh. Both share the autosave in `src/useAutosave.ts` (load, debounced single-flight PUT, 409 replay, unmount flush, the close-tab warning). The Program aggregates in the browser through the pure `src/program/aggregate.ts`: `flattenFeatures` (keyed `<team>:<feature>`), `programWeeks` (the union of every team's planner axis and the Program's own), `teamLoad` (`weekFte` per team, over when booked exceeds available by more than 0.05 FTE), `teamCriticalPath` (`rollup` over every leaf row's `barShape`s, as a parent row rolls up its activities), `featureFte`. Per-browser UI state that names the team's data (filters, grouping, expansion, the Status tab's folds, the Gantt toggles) is stored under `feature-planner:<team>:…`; theme, the last view and team, *Hide resigned*, *Narrow weeks*, the name-column width and dialog sizes are global.
 
 ## Numbers (`src/logic.ts`)
 
@@ -84,13 +95,19 @@ The server resolves the link (`resolveCalendarUrl`: `settings.calendarUrl` when 
 | `src/ui/fields.tsx` | `NumberInput`, `TextInput`, `NoteInput`, `WeekInput`, `Bar` — inputs shared by the grid, the popovers, the dialogs and the Status tab |
 | `src/ui/pickers.tsx` | status / customer / release / person cells and their pickers — the Planner and the Status tab render the same ones, for features and stories alike |
 | `src/ui/Popover.tsx`, `src/ui/useTip.tsx`, `src/ui/ConfirmDialog.tsx` | anchored popover + `PctButtons`; floating tooltip; confirm dialog |
-| `src/ui/FilterBar.tsx`, `src/ui/SettingsMenu.tsx`, `src/ui/useHashRoute.ts` | filter dropdowns; the ⚙ menu; the `#/view?…` route |
+| `src/ui/FilterBar.tsx`, `src/ui/SettingsMenu.tsx`, `src/ui/useHashRoute.ts` | filter dropdowns; the ⚙ menu; the `#/team/view?…` route (tested in `useHashRoute.test.ts`) |
+| `src/App.tsx`, `src/Plan.tsx`, `src/useAutosave.ts` | the shell (teams, the team in the hash, the switcher), one team's plan (filters, dialogs, tabs) and the document autosave they share with the Program |
+| `src/program/ProgramPlan.tsx`, `aggregate.ts`, `ProgramCapacity.tsx`, `ProgramStatus.tsx`, `ProgramGrid.tsx` | the Program team: its shell (the other teams' snapshot, filters, its own document), the pure aggregation (tested in `aggregate.test.ts`) and its Capacity, Status and read-only Planner tabs; its Roadmap is `GanttView` with `pinned` rows |
+| `src/capacity/FteChart.tsx` | the booked-vs-available chart, drawn by the Capacity tab for one team and by the Program for all |
+| `src/ui/TeamMenu.tsx`, `src/ui/TeamDialogs.tsx` | the 👥 switcher (the Program first); the New team and Manage teams dialogs |
 | `src/theme.ts` | the colour palette tag / release / workstream colours are snapped onto |
 | `shared/db.mjs` | seed defaults (statuses, customers, colours, link categories, kinds), `isCalendarUrl()` and `payloadProblem()`, imported by both the server and the browser |
+| `server/store.mjs` | the team store: tables, team CRUD, per-team guarded writes and backups, the single-plan migration (tested in `store.test.mjs`) |
 | `server/schema.mjs` | `normalize()` and the `migrate()` ladder (tested in `schema.test.mjs`) |
 | `server/vacations.mjs` | calendar parsing, matching and merge rules (tested in `vacations.test.mjs`) |
 | `src/gantt/GanttView.tsx`, `src/gantt/bars.ts` | Roadmap tab; the bar maths (tested in `bars.test.ts`, vitest) |
 | `src/ui/FeatureDialogs.tsx` | Feature, Package, Releases & milestones, roadmap row dialogs |
 | `src/ui/Dialogs.tsx` | Modal, People, Settings, links editor |
-| `scripts/make-seed.mjs` | builds the demo `server/seed.json` |
+| `scripts/make-seed.mjs`, `scripts/seed/` | build the demo teams: `server/seed.json` (Demo team, `demo.mjs`) and `server/seed-teams.json` (Mobile apps `mobile.mjs`, Data platform `data.mjs`, the Program's own roadmap and notes `program.mjs`), from the shared week and booking helpers in `helpers.mjs` |
+| `scripts/add-demo-teams.mjs` | loads `seed-teams.json` into a running server through the team API, skipping names already taken; fills the Program only while it is empty |
 | `scripts/make-favicon.py` | draws `public/favicon.png` and the touch icon |

@@ -7,10 +7,15 @@ dev:
     [ -d node_modules ] || npm install
     npm run dev
 
-# regenerate server/seed.json (the demo data set) from scripts/make-seed.mjs; the seed is only
-# read when data/db.sqlite does not exist yet — see README "Run"
+# regenerate the demo data (server/seed.json and server/seed-teams.json) from scripts/make-seed.mjs
+# and scripts/seed/; the seeds are only read when the database has no team yet — see README "Run"
 seed:
     node scripts/make-seed.mjs
+
+# load the extra demo teams (server/seed-teams.json) into a running server, e.g.
+# `just demo-teams http://localhost:3179`; teams that already exist are skipped
+demo-teams URL="http://localhost:3179":
+    node scripts/add-demo-teams.mjs {{URL}}
 
 # start over on the demo data: stop the server first
 reset-db:

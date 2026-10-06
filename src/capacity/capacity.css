@@ -191,3 +191,10 @@
 
 /* a feature row's status and customer tags, side by side */
 .cv-scope .cv-tags { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+/* the Program's pinned rows: a section heading, a read-only lane with the team's own ⚑ and ◆ */
+.gv-row.gv-section td { height: 28px; background: var(--surface-2); }
+.gv-row.gv-section .lbl-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); }
+.gv-row.gv-pinned .gv-lbl { background: var(--surface); }
+.gv-none { position: absolute; left: 8px; top: 0; line-height: 46px; }
+.gv-mark { position: absolute; bottom: 0; height: 16px; line-height: 16px; text-align: center; font-size: 12px; pointer-events: auto; cursor: default; text-shadow: 0 0 2px var(--surface); }
+.gv-band { position: absolute; bottom: 3px; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--ph, var(--danger)) 18%, transparent); pointer-events: auto; }

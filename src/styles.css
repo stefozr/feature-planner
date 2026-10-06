@@ -1018,3 +1018,16 @@ tr.frow-group .lbl-name { font-weight: 700; }
 .edit-table th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 600; padding: 4px; }
 .edit-table td { padding: 3px 4px; }
 .edit-table input[type='text'], .edit-table input:not([type]), .edit-table input[type='date'], .edit-table select { width: 100%; }
+
+/* ---------- team switcher (header) and the team dialogs ---------- */
+.team-dd { font-weight: 600; }
+.team-panel { min-width: 240px; gap: 4px; }
+.team-panel .menu-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.team-panel .menu-item.active { background: var(--accent-soft); color: var(--accent); }
+.team-panel .menu-item .hint { white-space: nowrap; }
+.modal.team-modal { width: min(560px, calc(100vw - 48px)); }
+.team-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.team-table td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: middle; }
+.team-table tr:first-child td { border-top: none; }
+.team-table td:first-child { width: 60%; }
+.team-table input { width: 100%; box-sizing: border-box; }

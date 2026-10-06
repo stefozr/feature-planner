@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { DB, GanttItem, ROADMAP_STATUSES, RoadmapStatus } from '../types'
+import { DB, GanttItem, Milestone, ROADMAP_STATUSES, Release, RoadmapStatus } from '../types'
 import { addWeeks, mondayOf, uid, weekLabel, weekRange, weekTag } from '../logic'
 import { usePersisted } from '../ui/usePersisted'
 import { GanttBarDialog, GanttItemDialog } from '../ui/FeatureDialogs'
@@ -16,6 +16,27 @@ interface Props {
   showPlanned: boolean
   onShowPlanned: (v: boolean) => void
   update: (fn: (d: DB) => void) => void
+  /**
+   * Read-only rows drawn above the workstreams (the Program's critical path per team): one summary
+   * bar each, with that row's own releases (⚑) and milestones (◆) marked in its lane.
+   */
+  pinned?: PinnedRow[]
+  /** the heading over the pinned rows */
+  pinnedLabel?: string
+  /** weeks the axis must cover besides this document's own (the Program's union of every team) */
+  extraWeeks?: string[]
+}
+
+export interface PinnedRow {
+  id: string
+  name: string
+  color?: string
+  /** null: nothing to draw — the row says so */
+  shape: BarShape | null
+  releases: Release[]
+  milestones: Milestone[]
+  title?: string
+  onClick?: () => void
 }
 
 /** Week column width; the rows and type in capacity.css are sized to match, and the planner's Gantt view uses it too. */
@@ -57,7 +78,7 @@ interface RowBars {
   summary: BarShape | null
 }
 
-export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned, onShowPlanned, update }: Props) {
+export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned, onShowPlanned, update, pinned = [], pinnedLabel, extraWeeks }: Props) {
   const [collapsed, setCollapsed] = usePersisted<Record<string, boolean>>('feature-planner:ganttCollapsed', {})
   const [lateOnly, setLateOnly] = usePersisted<boolean>('feature-planner:roadmapLateOnly', false)
   const [dialog, setDialog] = useState<Dialog>(null)
@@ -102,10 +123,20 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
     }
     for (const rb of rowBars.values()) for (const o of rb.own) stretch(o.shape)
     for (const r of db.releases) if (r.date && addWeeks(mondayOf(r.date), 2) > end) end = addWeeks(mondayOf(r.date), 2)
+    for (const p of pinned) {
+      if (p.shape) stretch(p.shape)
+      for (const r of p.releases) if (r.date && addWeeks(mondayOf(r.date), 2) > end) end = addWeeks(mondayOf(r.date), 2)
+      for (const m of p.milestones) if (addWeeks(mondayOf(m.end ?? m.date), 2) > end) end = addWeeks(mondayOf(m.end ?? m.date), 2)
+    }
+    if (extraWeeks?.length) {
+      if (extraWeeks[0] < start) start = extraWeeks[0]
+      const last = addWeeks(extraWeeks[extraWeeks.length - 1], 1)
+      if (last > end) end = last
+    }
     const out: string[] = []
     for (let w = start; w < end; w = addWeeks(w, 1)) out.push(w)
     return out
-  }, [db, rowBars])
+  }, [db, rowBars, pinned, extraWeeks])
   const weekIndex = useMemo(() => new Map(weeks.map((w, i) => [w, i])), [weeks])
   /** phase weeks, and each one-day event's week, → its colour as `--ph` (CSS falls back to red); a one-day event wins its week */
   const bandWeeks = new Set<string>()
@@ -132,6 +163,7 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
     return !!rb?.own.some((o) => isLateOrStuck(o.shape))
   }
   const visible: Node[] = []
+  const shownPinned = lateOnly ? pinned.filter((p) => p.shape && isLateOrStuck(p.shape)) : pinned
   const walk = (nodes: Node[]) => {
     for (const n of nodes) {
       if (!keep(n)) continue
@@ -339,6 +371,72 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
             </tr>
           </thead>
           <tbody>
+            {shownPinned.length > 0 && (
+              <tr className="gv-row gv-section">
+                <td className="gv-lbl">
+                  <div className="gv-name" style={{ paddingLeft: 10 }}>
+                    <span className="lbl-name">{pinnedLabel ?? 'Pinned'}</span>
+                  </div>
+                </td>
+                {weeks.map((w) => (
+                  <td key={w} className={`gv-cell${w === today ? ' today' : ''}`} />
+                ))}
+              </tr>
+            )}
+            {shownPinned.map((p) => {
+              const color = colorOf(p.color) ?? 'var(--accent)'
+              const barColorOf = p.shape ? (colorOf(statusColor(db, p.shape.status)) ?? color) : color
+              return (
+                <tr key={`pin:${p.id}`} className="gv-row d0 gv-pinned">
+                  <td className="gv-lbl">
+                    <div className="gv-name" style={{ paddingLeft: 6 }}>
+                      <span className="caret-spacer" />
+                      <span className="tag-dot" style={{ background: color }} />
+                      <span className={`lbl-name${p.onClick ? ' lbl-link' : ''}`} title={p.title ?? p.name} onClick={p.onClick}>
+                        {p.name}
+                      </span>
+                    </div>
+                  </td>
+                  {weeks.map((w, wi) => (
+                    <td key={w} className={`gv-cell${w === today ? ' today' : ''}`}>
+                      {wi === 0 && (
+                        <div className="gv-lane" style={{ width: weeks.length * ROADMAP_COL }}>
+                          {p.shape ? renderBar(p.name, p.shape, barColorOf, { summary: true, onClick: p.onClick }) : <span className="gv-none hint">no roadmap bars</span>}
+                          {p.milestones
+                            .filter((m) => m.end)
+                            .map((m) => {
+                              const box = spanBox(mondayOf(m.date), mondayOf(m.end!))
+                              return box && <div key={m.id} className="gv-band" style={{ left: box.left - 2, width: box.width + 4, '--ph': m.color } as React.CSSProperties} title={`◆ ${m.name} · ${m.date} → ${m.end}`} />
+                            })}
+                          {p.releases.map((r) => {
+                            const box = spanBox(mondayOf(r.date!), mondayOf(r.date!))
+                            return box && <span key={r.id} className="gv-mark" style={{ left: box.left, width: box.width, color: colorOf(r.color) }} title={`⚑ ${r.name} release ${r.date}`}>⚑</span>
+                          })}
+                          {p.milestones
+                            .filter((m) => !m.end)
+                            .map((m) => {
+                              const box = spanBox(mondayOf(m.date), mondayOf(m.date))
+                              return box && <span key={m.id} className="gv-mark" style={{ left: box.left, width: box.width, color: m.color ?? 'var(--danger)' }} title={`◆ ${m.name} · ${m.date}`}>◆</span>
+                            })}
+                        </div>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
+            {shownPinned.length > 0 && db.workstreams.length > 0 && (
+              <tr className="gv-row gv-section">
+                <td className="gv-lbl">
+                  <div className="gv-name" style={{ paddingLeft: 10 }}>
+                    <span className="lbl-name">Workstreams</span>
+                  </div>
+                </td>
+                {weeks.map((w) => (
+                  <td key={w} className={`gv-cell${w === today ? ' today' : ''}`} />
+                ))}
+              </tr>
+            )}
             {visible.map((n) => {
               const it = n.item
               const color = colorOf(n.color) ?? 'var(--accent)'
@@ -405,7 +503,7 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
                 </tr>
               )
             })}
-            {visible.length === 0 && (
+            {visible.length === 0 && shownPinned.length === 0 && (
               <tr>
                 <td className="gv-lbl"><span className="hint">{lateOnly ? 'No late or blocked bars.' : 'No roadmap rows yet.'}</span></td>
               </tr>

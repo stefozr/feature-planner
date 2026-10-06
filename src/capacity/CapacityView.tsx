@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { AwayEntry, DB, Feature, KIND_LABEL, Person, hasLeft, isBlockedStatus, isFinishedStatus, isResigned, optionColor, tagStyle } from '../types'
+import { AwayEntry, DB, Feature, Person, hasLeft, isBlockedStatus, isFinishedStatus, isResigned, optionColor, tagStyle } from '../types'
 import {
   availablePct,
   awayPct,
@@ -26,6 +26,7 @@ import {
   weekTag,
 } from '../logic'
 import { PersonWeekPopover } from '../grid/CellPopover'
+import FteChart from './FteChart'
 import { Bar } from '../ui/fields'
 import { usePersisted } from '../ui/usePersisted'
 import { useTip, type TipAttach } from '../ui/useTip'
@@ -222,9 +223,6 @@ export default function CapacityView({
       </>
     )
   }
-  const maxY = Math.max(1, ...fte.map((f) => Math.max(f.available, f.dev + f.test + f.buffer)))
-  const yMax = Math.ceil(maxY)
-  const ticks = [0, Math.round(yMax / 2), yMax]
 
   // ----- epics -----
   const epicRows = db.epics
@@ -336,55 +334,16 @@ export default function CapacityView({
           </div>
         </div>
 
-        <section className="cv-card">
-          <div className="cv-head">
-            <h2>Booked vs available, per week</h2>
-            <div className="cv-legend">
-              {(['dev', 'test', 'buffer'] as const).map((k) => (
-                <span key={k} className="cv-key"><span className={`cv-sw k-${k}`} />{KIND_LABEL[k]}</span>
-              ))}
-              <span className="cv-key"><span className="cv-sw line" />Available</span>
-            </div>
-            <label className="cv-check" title="Start this chart 4 weeks before today">
-              <input type="checkbox" checked={fteFromToday} onChange={() => setFteFromToday((v) => !v)} /> From today
-            </label>
-          </div>
-          <p className="hint">FTE per week. A column above the line means more is booked than the team has that week (after away time and time outside the project).</p>
-          <div className="cv-chart">
-            <div className="cv-yaxis">
-              {[...ticks].reverse().map((t) => (
-                <span key={t}>{t}</span>
-              ))}
-            </div>
-            <div className="cv-plot">
-              {ticks.map((t) => (
-                <div key={t} className="cv-grid" style={{ bottom: `${(t / yMax) * 100}%` }} />
-              ))}
-              <div className="cv-cols">
-                {fte.map((f) => {
-                  const booked = f.dev + f.test + f.buffer
-                  const over = booked > f.available + 0.05
-                  return (
-                    <div key={f.w} className={`cv-col${f.w === today ? ' today' : ''}`} {...attach(colTip(f))}>
-                      <div className="cv-stack" style={{ height: `${(booked / yMax) * 100}%` }}>
-                        {f.buffer > 0 && <div className="cv-seg k-buffer" style={{ flexGrow: f.buffer }} />}
-                        {f.test > 0 && <div className="cv-seg k-test" style={{ flexGrow: f.test }} />}
-                        {f.dev > 0 && <div className="cv-seg k-dev" style={{ flexGrow: f.dev }} />}
-                      </div>
-                      <div className="cv-avail" style={{ bottom: `${(f.available / yMax) * 100}%` }} />
-                      {over && <div className="cv-over-dot" style={{ bottom: `calc(${(booked / yMax) * 100}% + 3px)` }}>!</div>}
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="cv-xaxis">
-                {fte.map((f, i) => (
-                  <span key={f.w} className={f.w === today ? 'today' : ''}>{i % 2 === 0 || fte.length < 16 ? weekTag(f.w) : ''}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+        <FteChart
+          title="Booked vs available, per week"
+          hint="FTE per week. A column above the line means more is booked than the team has that week (after away time and time outside the project)."
+          columns={fte}
+          today={today}
+          tip={colTip}
+          attach={attach}
+          fromToday={fteFromToday}
+          onFromToday={setFteFromToday}
+        />
 
         <section className="cv-card">
           <div className="cv-head">
