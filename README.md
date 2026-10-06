@@ -182,6 +182,8 @@ With auth on, the browser logs in through Keycloak (PKCE) and the server verifie
 
 `docker compose up -d` starts a Keycloak (admin / admin on port 8080) with a `feature-planner` realm, a public `feature-planner` client, both roles and two test users (`viewer` / `viewer`, `editor` / `editor`). Then run the app with `OIDC_ISSUER=http://localhost:8080/realms/feature-planner npm run dev`. `OIDC_CLIENT_ID` (default `feature-planner`) and `OIDC_AUDIENCE` are optional.
 
+The full walkthrough — login flow, token refresh, server middleware, route-to-role table and client-side gating — is in [docs/authentication.md](docs/authentication.md).
+
 ## Run, test and deploy
 
 | Command | What |
