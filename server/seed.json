@@ -1,0 +1,1335 @@
+{
+  "schemaVersion": 4,
+  "settings": {
+    "projectStart": "2026-09-07",
+    "horizonWeeks": 26,
+    "hoursPerWeek": 30,
+    "profiles": [
+      "BA",
+      "Engineer",
+      "QA"
+    ],
+    "featureStatuses": [
+      "New",
+      "Open",
+      "Analyzing",
+      "In Progress",
+      "Need Verification",
+      "Blocked",
+      "Closed",
+      "Rejected"
+    ],
+    "customers": [
+      "Acme Corp",
+      "Globex",
+      "Initech"
+    ],
+    "linkCategories": [
+      "Jira",
+      "Spec",
+      "Docs",
+      "Other"
+    ]
+  },
+  "people": [
+    {
+      "id": "p-alice",
+      "name": "Alice Morgan",
+      "profile": "Engineer",
+      "short": "Alice",
+      "away": [
+        {
+          "start": "2026-09-30",
+          "end": "2026-10-02",
+          "type": "Vacation",
+          "note": "long weekend"
+        }
+      ]
+    },
+    {
+      "id": "p-ben",
+      "name": "Ben Carter",
+      "profile": "Engineer",
+      "short": "Ben",
+      "capacity": 80
+    },
+    {
+      "id": "p-chloe",
+      "name": "Chloe Nguyen",
+      "profile": "QA",
+      "short": "Chloe",
+      "defaultKind": "test",
+      "away": [
+        {
+          "start": "2026-10-07",
+          "end": "2026-10-07",
+          "type": "Sick"
+        }
+      ]
+    },
+    {
+      "id": "p-dan",
+      "name": "Dan Okafor",
+      "profile": "Engineer",
+      "short": "Dan",
+      "away": [
+        {
+          "start": "2026-10-19",
+          "end": "2026-10-23",
+          "type": "Vacation"
+        }
+      ]
+    },
+    {
+      "id": "p-eva",
+      "name": "Eva Lindqvist",
+      "profile": "BA",
+      "short": "Eva",
+      "away": [
+        {
+          "start": "2026-10-12",
+          "end": "2026-10-12",
+          "type": "Public holiday",
+          "note": "Thanksgiving (CA)"
+        }
+      ]
+    },
+    {
+      "id": "p-finn",
+      "name": "Finn Harper",
+      "profile": "QA",
+      "short": "Finn",
+      "defaultKind": "test",
+      "away": [
+        {
+          "start": "2026-11-02",
+          "end": "2026-11-03",
+          "type": "Training",
+          "note": "test automation course"
+        }
+      ]
+    },
+    {
+      "id": "p-grace",
+      "name": "Grace Kim",
+      "profile": "Engineer",
+      "short": "Grace",
+      "resignedFrom": "2026-10-26"
+    },
+    {
+      "id": "p-hugo",
+      "name": "Hugo Silva",
+      "profile": "Engineer",
+      "short": "Hugo",
+      "external": [
+        {
+          "start": "2026-01-05",
+          "end": "2026-11-01",
+          "pct": 100,
+          "note": "Not on the project yet"
+        }
+      ]
+    }
+  ],
+  "epics": [
+    {
+      "id": "e-100",
+      "key": "PKG-100",
+      "name": "Customer onboarding"
+    },
+    {
+      "id": "e-200",
+      "key": "PKG-200",
+      "name": "Payments"
+    },
+    {
+      "id": "e-300",
+      "key": "PKG-300",
+      "name": "Reporting & analytics"
+    },
+    {
+      "id": "e-400",
+      "key": "PKG-400",
+      "name": "Platform maintenance"
+    }
+  ],
+  "features": [
+    {
+      "id": "f-101",
+      "epicId": "e-100",
+      "key": "PROJ-101",
+      "name": "Self-service sign-up form",
+      "status": "Closed",
+      "releaseId": "r-1-0",
+      "customer": "Acme Corp",
+      "leadId": "p-alice",
+      "buddyId": "p-ben",
+      "testLeadId": "p-chloe",
+      "planStart": "2026-09-07",
+      "planEnd": "2026-09-21",
+      "deadline": "2026-09-28",
+      "estimate": 60,
+      "logged": 52,
+      "remaining": 0,
+      "cells": {
+        "2026-09-07": {
+          "entries": [
+            {
+              "id": "n0001",
+              "personId": "p-alice",
+              "pct": 100,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-09-14": {
+          "entries": [
+            {
+              "id": "n0002",
+              "personId": "p-alice",
+              "pct": 40,
+              "kind": "dev"
+            },
+            {
+              "id": "n0003",
+              "personId": "p-chloe",
+              "pct": 60,
+              "kind": "test"
+            }
+          ]
+        }
+      },
+      "tracking": {
+        "comment": "Shipped a week ahead of plan."
+      },
+      "links": [
+        {
+          "label": "PROJ-101",
+          "url": "https://jira.example.com/browse/PROJ-101",
+          "category": "Jira"
+        }
+      ]
+    },
+    {
+      "id": "f-102",
+      "epicId": "e-100",
+      "key": "PROJ-102",
+      "name": "Identity verification (KYC)",
+      "status": "In Progress",
+      "releaseId": "r-1-0",
+      "customer": "Acme Corp",
+      "leadId": "p-alice",
+      "testLeadId": "p-chloe",
+      "planStart": "2026-09-14",
+      "planEnd": "2026-10-12",
+      "deadline": "2026-10-12",
+      "estimate": 120,
+      "logged": 70,
+      "remaining": 40,
+      "cells": {
+        "2026-09-14": {
+          "entries": [
+            {
+              "id": "n0004",
+              "personId": "p-alice",
+              "pct": 60,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-09-21": {
+          "entries": [
+            {
+              "id": "n0005",
+              "personId": "p-alice",
+              "pct": 100,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-09-28": {
+          "entries": [
+            {
+              "id": "n0006",
+              "personId": "p-alice",
+              "pct": 40,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-05": {
+          "entries": [
+            {
+              "id": "n0007",
+              "personId": "p-alice",
+              "pct": 80,
+              "kind": "dev",
+              "note": "in code review"
+            },
+            {
+              "id": "n0008",
+              "personId": "p-chloe",
+              "pct": 40,
+              "kind": "test"
+            }
+          ]
+        },
+        "2026-10-12": {
+          "entries": [
+            {
+              "id": "n0009",
+              "personId": "p-alice",
+              "pct": 40,
+              "kind": "dev"
+            },
+            {
+              "id": "n000a",
+              "personId": "p-chloe",
+              "pct": 100,
+              "kind": "test"
+            }
+          ]
+        }
+      },
+      "tracking": {
+        "risks": "The KYC provider’s sandbox is flaky; retries are in place."
+      },
+      "links": [
+        {
+          "label": "KYC spec",
+          "url": "https://wiki.example.com/kyc",
+          "category": "Spec"
+        }
+      ]
+    },
+    {
+      "id": "f-103",
+      "epicId": "e-100",
+      "key": "PROJ-103",
+      "name": "Welcome email sequence",
+      "status": "In Progress",
+      "releaseId": "r-1-0",
+      "customer": "Acme Corp",
+      "leadId": "p-dan",
+      "buddyId": "p-alice",
+      "testLeadId": "p-finn",
+      "planStart": "2026-09-07",
+      "planEnd": "2026-09-21",
+      "deadline": "2026-09-21",
+      "estimate": 40,
+      "logged": 48,
+      "remaining": 10,
+      "cells": {
+        "2026-09-07": {
+          "entries": [
+            {
+              "id": "n000b",
+              "personId": "p-dan",
+              "pct": 60,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-09-14": {
+          "entries": [
+            {
+              "id": "n000b",
+              "personId": "p-dan",
+              "pct": 60,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-09-21": {
+          "entries": [
+            {
+              "id": "n000b",
+              "personId": "p-dan",
+              "pct": 60,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-09-28": {
+          "entries": [
+            {
+              "id": "n000b",
+              "personId": "p-dan",
+              "pct": 60,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-05": {
+          "entries": [
+            {
+              "id": "n000c",
+              "personId": "p-dan",
+              "pct": 60,
+              "kind": "dev"
+            },
+            {
+              "id": "n000d",
+              "personId": "p-finn",
+              "pct": 40,
+              "kind": "test"
+            }
+          ]
+        },
+        "2026-10-12": {
+          "entries": [
+            {
+              "id": "n000e",
+              "personId": "p-finn",
+              "pct": 60,
+              "kind": "test",
+              "note": "regression"
+            }
+          ]
+        }
+      },
+      "tracking": {
+        "comment": "Template approvals from marketing took longer than planned.",
+        "blockers": "Legal sign-off on the footer text"
+      }
+    },
+    {
+      "id": "f-104",
+      "epicId": "e-100",
+      "key": "PROJ-104",
+      "name": "Account recovery flow",
+      "status": "New",
+      "releaseId": "r-1-1",
+      "customer": "Globex",
+      "leadId": "p-ben",
+      "planStart": "2026-10-19",
+      "planEnd": "2026-11-02",
+      "deadline": "2026-11-09",
+      "estimate": 50,
+      "remaining": 50,
+      "cells": {}
+    },
+    {
+      "id": "f-201",
+      "epicId": "e-200",
+      "key": "PROJ-201",
+      "name": "Card payments via PSP",
+      "status": "Blocked",
+      "releaseId": "r-1-1",
+      "customer": "Globex",
+      "leadId": "p-ben",
+      "testLeadId": "p-finn",
+      "planStart": "2026-09-21",
+      "planEnd": "2026-10-19",
+      "deadline": "2026-10-19",
+      "estimate": 100,
+      "logged": 35,
+      "remaining": 60,
+      "cells": {
+        "2026-09-21": {
+          "entries": [
+            {
+              "id": "n000f",
+              "personId": "p-ben",
+              "pct": 80,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-09-28": {
+          "entries": [
+            {
+              "id": "n000f",
+              "personId": "p-ben",
+              "pct": 80,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-05": {
+          "entries": [
+            {
+              "id": "n000f",
+              "personId": "p-ben",
+              "pct": 80,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-12": {
+          "entries": [
+            {
+              "id": "n000g",
+              "personId": "p-ben",
+              "pct": 40,
+              "kind": "buffer",
+              "note": "waiting for credentials"
+            }
+          ],
+          "note": "Blocked on PSP sandbox access"
+        }
+      },
+      "tracking": {
+        "blockers": "PROJ-299 — PSP sandbox credentials",
+        "risks": "Release 1.1 slips if the credentials take another week."
+      }
+    },
+    {
+      "id": "f-202",
+      "epicId": "e-200",
+      "key": "PROJ-202",
+      "name": "Refunds & chargebacks",
+      "status": "Analyzing",
+      "releaseId": "r-1-1",
+      "customer": "Globex",
+      "leadId": "p-eva",
+      "planStart": "2026-10-19",
+      "planEnd": "2026-11-09",
+      "estimate": 80,
+      "remaining": 80,
+      "cells": {
+        "2026-10-19": {
+          "entries": [
+            {
+              "id": "n000h",
+              "personId": "p-eva",
+              "pct": 40,
+              "kind": "dev",
+              "note": "analysis"
+            },
+            {
+              "id": "n000i",
+              "personId": null,
+              "label": "Test",
+              "pct": 60,
+              "kind": "test"
+            }
+          ],
+          "note": "Waiting for the PSP contract"
+        },
+        "2026-10-26": {
+          "entries": [
+            {
+              "id": "n000j",
+              "personId": "p-eva",
+              "pct": 40,
+              "kind": "dev"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f-203",
+      "epicId": "e-200",
+      "key": "PROJ-203",
+      "name": "Invoice PDF export",
+      "status": "Need Verification",
+      "releaseId": "r-1-0",
+      "customer": "Initech",
+      "leadId": "p-dan",
+      "testLeadId": "p-finn",
+      "planStart": "2026-09-21",
+      "planEnd": "2026-10-05",
+      "deadline": "2026-10-05",
+      "estimate": 30,
+      "logged": 28,
+      "remaining": 4,
+      "cells": {
+        "2026-09-21": {
+          "entries": [
+            {
+              "id": "n000k",
+              "personId": "p-dan",
+              "pct": 40,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-09-28": {
+          "entries": [
+            {
+              "id": "n000k",
+              "personId": "p-dan",
+              "pct": 40,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-05": {
+          "entries": [
+            {
+              "id": "n000l",
+              "personId": "p-finn",
+              "pct": 60,
+              "kind": "test"
+            }
+          ]
+        },
+        "2026-10-12": {
+          "entries": [
+            {
+              "id": "n000m",
+              "personId": "p-finn",
+              "pct": 40,
+              "kind": "test",
+              "note": "edge cases"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f-204",
+      "epicId": "e-200",
+      "key": "PROJ-204",
+      "name": "Crypto payments",
+      "status": "Rejected",
+      "releaseId": "r-2-0",
+      "customer": "Globex",
+      "leadId": "p-eva",
+      "estimate": 60,
+      "logged": 6,
+      "remaining": 0,
+      "cells": {},
+      "tracking": {
+        "comment": "Out of scope this year — revisit with the 2.0 roadmap."
+      }
+    },
+    {
+      "id": "f-301",
+      "epicId": "e-300",
+      "key": "PROJ-301",
+      "name": "Usage dashboard",
+      "status": "In Progress",
+      "releaseId": "r-1-1",
+      "customer": "Initech",
+      "leadId": "p-grace",
+      "testLeadId": "p-chloe",
+      "planStart": "2026-09-28",
+      "planEnd": "2026-10-26",
+      "deadline": "2026-10-26",
+      "estimate": 90,
+      "logged": 30,
+      "remaining": 60,
+      "cells": {
+        "2026-09-28": {
+          "entries": [
+            {
+              "id": "n000n",
+              "personId": "p-grace",
+              "pct": 100,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-05": {
+          "entries": [
+            {
+              "id": "n000n",
+              "personId": "p-grace",
+              "pct": 100,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-12": {
+          "entries": [
+            {
+              "id": "n000n",
+              "personId": "p-grace",
+              "pct": 100,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-19": {
+          "entries": [
+            {
+              "id": "n000o",
+              "personId": "p-grace",
+              "pct": 100,
+              "kind": "dev"
+            },
+            {
+              "id": "n000p",
+              "personId": "p-chloe",
+              "pct": 40,
+              "kind": "test"
+            }
+          ]
+        },
+        "2026-10-26": {
+          "entries": [
+            {
+              "id": "n000q",
+              "personId": "p-grace",
+              "pct": 100,
+              "kind": "dev"
+            },
+            {
+              "id": "n000r",
+              "personId": "p-chloe",
+              "pct": 80,
+              "kind": "test"
+            }
+          ]
+        }
+      },
+      "tracking": {
+        "risks": "Grace leaves in week 7 — handover to Hugo needed."
+      }
+    },
+    {
+      "id": "f-302",
+      "epicId": "e-300",
+      "key": "PROJ-302",
+      "name": "Scheduled report emails",
+      "status": "Open",
+      "releaseId": "r-1-1",
+      "customer": "Initech",
+      "leadId": "p-hugo",
+      "testLeadId": "p-chloe",
+      "planStart": "2026-11-02",
+      "planEnd": "2026-11-16",
+      "deadline": "2026-11-16",
+      "estimate": 45,
+      "remaining": 45,
+      "cells": {
+        "2026-11-02": {
+          "entries": [
+            {
+              "id": "n000s",
+              "personId": "p-hugo",
+              "pct": 100,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-11-09": {
+          "entries": [
+            {
+              "id": "n000s",
+              "personId": "p-hugo",
+              "pct": 100,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-11-16": {
+          "entries": [
+            {
+              "id": "n000t",
+              "personId": "p-hugo",
+              "pct": 60,
+              "kind": "dev"
+            },
+            {
+              "id": "n000u",
+              "personId": "p-chloe",
+              "pct": 40,
+              "kind": "test"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f-303",
+      "epicId": "e-300",
+      "key": "PROJ-303",
+      "name": "Data export API",
+      "status": "In Progress",
+      "releaseId": "r-2-0",
+      "customer": "Globex",
+      "leadId": "p-ben",
+      "buddyId": "p-dan",
+      "planStart": "2026-10-05",
+      "planEnd": "2026-11-02",
+      "estimate": 70,
+      "logged": 12,
+      "remaining": 55,
+      "cells": {
+        "2026-10-05": {
+          "entries": [
+            {
+              "id": "n000v",
+              "personId": "p-ben",
+              "pct": 80,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-12": {
+          "entries": [
+            {
+              "id": "n000w",
+              "personId": "p-ben",
+              "pct": 40,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-19": {
+          "entries": [
+            {
+              "id": "n000x",
+              "personId": "p-ben",
+              "pct": 80,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-26": {
+          "entries": [
+            {
+              "id": "n000x",
+              "personId": "p-ben",
+              "pct": 80,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-11-02": {
+          "entries": [
+            {
+              "id": "n000x",
+              "personId": "p-ben",
+              "pct": 80,
+              "kind": "dev"
+            }
+          ]
+        }
+      },
+      "links": [
+        {
+          "label": "PROJ-303",
+          "url": "https://jira.example.com/browse/PROJ-303",
+          "category": "Jira"
+        },
+        {
+          "label": "API design",
+          "url": "https://wiki.example.com/export-api",
+          "category": "Docs"
+        }
+      ]
+    },
+    {
+      "id": "f-401",
+      "epicId": "e-400",
+      "key": "PROJ-401",
+      "name": "Upgrade to Node 24",
+      "status": "Closed",
+      "releaseId": "r-1-0",
+      "leadId": "p-ben",
+      "planStart": "2026-09-07",
+      "planEnd": "2026-09-14",
+      "estimate": 20,
+      "logged": 24,
+      "remaining": 0,
+      "cells": {
+        "2026-09-07": {
+          "entries": [
+            {
+              "id": "n000y",
+              "personId": "p-ben",
+              "pct": 40,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-09-14": {
+          "entries": [
+            {
+              "id": "n000y",
+              "personId": "p-ben",
+              "pct": 40,
+              "kind": "dev"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f-402",
+      "epicId": "e-400",
+      "key": "PROJ-402",
+      "name": "Security patch rollout",
+      "status": "In Progress",
+      "leadId": "p-alice",
+      "planStart": "2026-10-05",
+      "planEnd": "2026-10-12",
+      "deadline": "2026-10-12",
+      "estimate": 16,
+      "logged": 6,
+      "remaining": 8,
+      "cells": {
+        "2026-10-05": {
+          "entries": [
+            {
+              "id": "n000z",
+              "personId": "p-alice",
+              "pct": 20,
+              "kind": "dev"
+            }
+          ]
+        },
+        "2026-10-12": {
+          "entries": [
+            {
+              "id": "n0010",
+              "personId": "p-alice",
+              "pct": 20,
+              "kind": "dev"
+            },
+            {
+              "id": "n0011",
+              "personId": "p-dan",
+              "pct": 20,
+              "kind": "buffer"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f-403",
+      "epicId": "e-400",
+      "key": "PROJ-403",
+      "name": "Observability: distributed tracing",
+      "status": "New",
+      "releaseId": "r-2-0",
+      "cells": {},
+      "description": "Not estimated yet — spike planned for release 2.0."
+    }
+  ],
+  "stories": [
+    {
+      "id": "s-102-1",
+      "featureId": "f-102",
+      "key": "PROJ-110",
+      "name": "Document upload and OCR",
+      "status": "Closed",
+      "leadId": "p-alice",
+      "deadline": "2026-09-28",
+      "estimate": 40,
+      "logged": 38,
+      "remaining": 0,
+      "tracking": {
+        "comment": "Done; OCR accuracy is above the 95% target."
+      }
+    },
+    {
+      "id": "s-102-2",
+      "featureId": "f-102",
+      "key": "PROJ-111",
+      "name": "Liveness check",
+      "status": "In Progress",
+      "leadId": "p-alice",
+      "deadline": "2026-10-12",
+      "estimate": 50,
+      "logged": 30,
+      "remaining": 25,
+      "tracking": {
+        "risks": "Provider sandbox returns timeouts under load."
+      }
+    },
+    {
+      "id": "s-102-3",
+      "featureId": "f-102",
+      "key": "PROJ-112",
+      "name": "Manual review queue",
+      "status": "New",
+      "leadId": "p-chloe",
+      "deadline": "2026-10-12",
+      "estimate": 30,
+      "logged": 2,
+      "remaining": 15
+    },
+    {
+      "id": "s-103-1",
+      "featureId": "f-103",
+      "key": "PROJ-113",
+      "name": "Template design & approvals",
+      "status": "In Progress",
+      "leadId": "p-dan",
+      "deadline": "2026-09-21",
+      "estimate": 25,
+      "logged": 36,
+      "remaining": 4,
+      "tracking": {
+        "risks": "Every template change restarts the marketing review.",
+        "blockers": "Legal sign-off on the footer text",
+        "comment": "Three rounds of marketing feedback so far."
+      }
+    },
+    {
+      "id": "s-103-2",
+      "featureId": "f-103",
+      "key": "PROJ-114",
+      "name": "Send scheduling & open tracking",
+      "status": "In Progress",
+      "leadId": "p-finn",
+      "deadline": "2026-09-21",
+      "estimate": 15,
+      "logged": 12,
+      "remaining": 6,
+      "tracking": {
+        "comment": "Regression run in progress."
+      }
+    },
+    {
+      "id": "s-104-1",
+      "featureId": "f-104",
+      "key": "PROJ-115",
+      "name": "Reset link email",
+      "status": "New",
+      "leadId": "p-ben",
+      "deadline": "2026-11-09",
+      "estimate": 30,
+      "remaining": 30
+    },
+    {
+      "id": "s-104-2",
+      "featureId": "f-104",
+      "key": "PROJ-116",
+      "name": "Security questions",
+      "status": "New",
+      "estimate": 20,
+      "remaining": 20,
+      "tracking": {
+        "comment": "Needs an owner once Ben is free."
+      }
+    },
+    {
+      "id": "s-201-1",
+      "featureId": "f-201",
+      "key": "PROJ-210",
+      "name": "PSP tokenisation",
+      "status": "Blocked",
+      "leadId": "p-ben",
+      "deadline": "2026-10-12",
+      "estimate": 60,
+      "logged": 35,
+      "remaining": 25,
+      "tracking": {
+        "blockers": "PROJ-299 — PSP sandbox credentials"
+      }
+    },
+    {
+      "id": "s-201-2",
+      "featureId": "f-201",
+      "key": "PROJ-211",
+      "name": "3-D Secure challenge flow",
+      "status": "New",
+      "leadId": "p-ben",
+      "deadline": "2026-10-19",
+      "estimate": 40,
+      "remaining": 35
+    },
+    {
+      "id": "s-301-1",
+      "featureId": "f-301",
+      "key": "PROJ-310",
+      "name": "Usage charts",
+      "status": "In Progress",
+      "leadId": "p-grace",
+      "deadline": "2026-10-19",
+      "estimate": 40,
+      "logged": 25,
+      "remaining": 15,
+      "tracking": {
+        "risks": "Grace leaves in week 7 — must land before then."
+      }
+    },
+    {
+      "id": "s-301-2",
+      "featureId": "f-301",
+      "key": "PROJ-311",
+      "name": "Tenant filter",
+      "status": "In Progress",
+      "leadId": "p-hugo",
+      "deadline": "2026-10-26",
+      "estimate": 30,
+      "logged": 5,
+      "remaining": 25,
+      "tracking": {
+        "comment": "Handover from Grace: design walkthrough done, Hugo takes it from week 8."
+      }
+    },
+    {
+      "id": "s-301-3",
+      "featureId": "f-301",
+      "name": "Export to CSV",
+      "status": "New",
+      "leadId": "p-hugo",
+      "deadline": "2026-10-26",
+      "estimate": 20,
+      "remaining": 20
+    },
+    {
+      "id": "s-403-1",
+      "featureId": "f-403",
+      "key": "PROJ-410",
+      "name": "Instrument the API gateway",
+      "status": "New"
+    },
+    {
+      "id": "s-403-2",
+      "featureId": "f-403",
+      "key": "PROJ-411",
+      "name": "Trace storage sizing",
+      "status": "Blocked",
+      "tracking": {
+        "blockers": "Waiting on the infra budget for 2.0"
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "r-1-0",
+      "name": "Release 1.0",
+      "label": "Oct",
+      "date": "2026-10-30",
+      "color": "#008060"
+    },
+    {
+      "id": "r-1-1",
+      "name": "Release 1.1",
+      "label": "Dec",
+      "date": "2026-12-11",
+      "color": "#006bd8"
+    },
+    {
+      "id": "r-2-0",
+      "name": "Release 2.0",
+      "label": "Mar",
+      "date": "2027-03-26",
+      "color": "#feb913"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "m-freeze-1-0",
+      "name": "Code freeze 1.0",
+      "date": "2026-10-19",
+      "releaseId": "r-1-0"
+    },
+    {
+      "id": "m-st-1-0",
+      "name": "System test 1.0",
+      "date": "2026-10-19",
+      "end": "2026-10-30",
+      "releaseId": "r-1-0",
+      "color": "#006bd8"
+    },
+    {
+      "id": "m-golive-1-0",
+      "name": "Go-live 1.0",
+      "date": "2026-11-02",
+      "releaseId": "r-1-0",
+      "color": "#008060"
+    },
+    {
+      "id": "m-freeze-1-1",
+      "name": "Code freeze 1.1",
+      "date": "2026-11-30",
+      "releaseId": "r-1-1"
+    }
+  ],
+  "workstreams": [
+    {
+      "id": "ws-product",
+      "parentId": null,
+      "name": "Onboarding & payments",
+      "color": "#006bd8",
+      "segments": []
+    },
+    {
+      "id": "g-discovery",
+      "parentId": "ws-product",
+      "name": "Discovery",
+      "segments": []
+    },
+    {
+      "id": "a-requirements",
+      "parentId": "g-discovery",
+      "name": "Requirements review",
+      "segments": [
+        {
+          "start": "2026-09-07",
+          "weeks": 2,
+          "actualStart": "2026-09-07",
+          "actualEnd": "2026-09-14",
+          "status": "Complete",
+          "progress": 100
+        }
+      ]
+    },
+    {
+      "id": "a-architecture",
+      "parentId": "g-discovery",
+      "name": "Architecture & estimates",
+      "segments": [
+        {
+          "start": "2026-09-14",
+          "weeks": 2,
+          "actualStart": "2026-09-14",
+          "actualEnd": "2026-09-21",
+          "status": "Complete",
+          "progress": 100
+        }
+      ]
+    },
+    {
+      "id": "g-build",
+      "parentId": "ws-product",
+      "name": "Build",
+      "segments": []
+    },
+    {
+      "id": "a-onboarding",
+      "parentId": "g-build",
+      "name": "Onboarding features",
+      "segments": [
+        {
+          "start": "2026-09-21",
+          "weeks": 5,
+          "actualStart": "2026-09-21",
+          "status": "In progress",
+          "progress": 45
+        }
+      ]
+    },
+    {
+      "id": "a-payments",
+      "parentId": "g-build",
+      "name": "Payments integration",
+      "segments": [
+        {
+          "start": "2026-09-28",
+          "weeks": 6,
+          "actualStart": "2026-09-28",
+          "status": "Blocked",
+          "progress": 30,
+          "reason": "PROJ-299 — PSP sandbox credentials"
+        }
+      ]
+    },
+    {
+      "id": "g-release-1-0",
+      "parentId": "ws-product",
+      "name": "Release 1.0",
+      "segments": []
+    },
+    {
+      "id": "a-system-test",
+      "parentId": "g-release-1-0",
+      "name": "System test",
+      "segments": [
+        {
+          "start": "2026-10-19",
+          "weeks": 2
+        }
+      ]
+    },
+    {
+      "id": "a-golive",
+      "parentId": "g-release-1-0",
+      "name": "Go-live",
+      "segments": [
+        {
+          "start": "2026-11-02",
+          "weeks": 1,
+          "milestone": true
+        }
+      ]
+    },
+    {
+      "id": "ws-platform",
+      "parentId": null,
+      "name": "Platform",
+      "color": "#fd6b1c",
+      "segments": []
+    },
+    {
+      "id": "g-maintenance",
+      "parentId": "ws-platform",
+      "name": "Maintenance",
+      "segments": []
+    },
+    {
+      "id": "a-node",
+      "parentId": "g-maintenance",
+      "name": "Node upgrade",
+      "segments": [
+        {
+          "start": "2026-09-07",
+          "weeks": 2,
+          "actualStart": "2026-09-07",
+          "actualEnd": "2026-09-14",
+          "status": "Complete",
+          "progress": 100
+        }
+      ]
+    },
+    {
+      "id": "a-security",
+      "parentId": "g-maintenance",
+      "name": "Security hardening",
+      "segments": [
+        {
+          "start": "2026-10-05",
+          "weeks": 3,
+          "actualStart": "2026-10-05",
+          "status": "On hold",
+          "progress": 20,
+          "reason": "Waiting for the pentest report"
+        }
+      ]
+    },
+    {
+      "id": "g-reporting",
+      "parentId": "ws-platform",
+      "name": "Reporting",
+      "segments": []
+    },
+    {
+      "id": "a-dashboard",
+      "parentId": "g-reporting",
+      "name": "Usage dashboard",
+      "segments": [
+        {
+          "start": "2026-09-28",
+          "weeks": 5,
+          "actualStart": "2026-09-28",
+          "status": "In progress",
+          "progress": 60
+        }
+      ]
+    },
+    {
+      "id": "a-report-emails",
+      "parentId": "g-reporting",
+      "name": "Scheduled report emails",
+      "segments": [
+        {
+          "start": "2026-11-02",
+          "weeks": 3
+        }
+      ]
+    },
+    {
+      "id": "a-analytics-kickoff",
+      "parentId": "g-reporting",
+      "name": "Analytics 2.0 kick-off",
+      "segments": [
+        {
+          "start": "2026-11-30",
+          "weeks": 1,
+          "milestone": true
+        }
+      ]
+    }
+  ]
+}

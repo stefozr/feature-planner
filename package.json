@@ -1,0 +1,37 @@
+{
+  "name": "feature-planner",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:fixed": "concurrently -n server,vite \"node server/index.mjs\" \"vite\"",
+    "server": "node server/index.mjs",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run src && node --test 'server/**/*.test.mjs'"
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/open-sans": "^5.3.0",
+    "@tanstack/react-table": "^8.21.3",
+    "better-sqlite3": "^13.0.3",
+    "express": "^4.19.2",
+    "jose": "^6.2.8",
+    "keycloak-js": "^26.2.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.0.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0",
+    "vitest": "^4.1.11",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  }
+}

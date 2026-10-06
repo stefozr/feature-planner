@@ -1,0 +1,79 @@
+# Dependencies only — the app itself runs on the host with `npm run dev`.
+#
+#   docker compose up -d          # start Keycloak (http://localhost:8080, admin/admin)
+#   OIDC_ISSUER=http://localhost:8080/realms/feature-planner npm run dev
+#
+# The feature-planner realm (feature-planner client, feature-planner-viewer /
+# feature-planner-editor roles, test users viewer/viewer and editor/editor) is
+# imported on first start from the inline config below — no bind mounts,
+# so it works regardless of Docker file-sharing settings.
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3
+    command: start-dev --import-realm
+    ports:
+      - '8080:8080'
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    configs:
+      - source: keycloak-realm
+        target: /opt/keycloak/data/import/feature-planner-realm.json
+    healthcheck:
+      # curl/wget absent in the image; TCP probe via bash
+      test: ['CMD-SHELL', 'exec 3<>/dev/tcp/localhost/8080 && exec 3>&-']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+configs:
+  keycloak-realm:
+    content: |
+      {
+        "realm": "feature-planner",
+        "enabled": true,
+        "roles": {
+          "realm": [
+            { "name": "feature-planner-viewer", "description": "Read-only access to the plan" },
+            { "name": "feature-planner-editor", "description": "Full read/write access" }
+          ]
+        },
+        "clients": [
+          {
+            "clientId": "feature-planner",
+            "name": "Feature Planner",
+            "enabled": true,
+            "publicClient": true,
+            "standardFlowEnabled": true,
+            "directAccessGrantsEnabled": true,
+            "redirectUris": ["http://localhost:5174/*", "http://localhost:3179/*"],
+            "webOrigins": ["+"],
+            "attributes": {
+              "pkce.code.challenge.method": "S256",
+              "post.logout.redirect.uris": "http://localhost:5174/*##http://localhost:3179/*"
+            }
+          }
+        ],
+        "users": [
+          {
+            "username": "viewer",
+            "enabled": true,
+            "firstName": "Vera",
+            "lastName": "Viewer",
+            "email": "viewer@example.com",
+            "emailVerified": true,
+            "credentials": [{ "type": "password", "value": "viewer", "temporary": false }],
+            "realmRoles": ["feature-planner-viewer"]
+          },
+          {
+            "username": "editor",
+            "enabled": true,
+            "firstName": "Ed",
+            "lastName": "Editor",
+            "email": "editor@example.com",
+            "emailVerified": true,
+            "credentials": [{ "type": "password", "value": "editor", "temporary": false }],
+            "realmRoles": ["feature-planner-editor"]
+          }
+        ]
+      }

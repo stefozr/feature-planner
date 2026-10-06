@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+data/
+import/
+Extra/
+.env
+.env.*
+
+.playwright-mcp/

@@ -1,0 +1,193 @@
+/* Capacity tab (.cv) and Roadmap tab (.gv). Colours come from the app tokens in styles.css,
+   so both themes work without a separate block here. */
+
+.cv { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
+.cv-wrap { max-width: 1400px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.cv-card { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--r-lg); padding: 14px 16px; }
+.cv-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.cv-head h2 { font-size: 15px; margin: 0; }
+/* a chart's own "From today" switch, at the right end of its header */
+.cv-check { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; color: var(--text-3); cursor: pointer; white-space: nowrap; }
+.cv-check input { margin: 0; }
+.cv-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.cv-tile { background: var(--surface); border: 1px solid var(--border-light); border-top: 3px solid var(--border-strong); border-radius: var(--r-lg); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.cv-tile.bad { border-top-color: var(--danger); }
+.cv-tile.good { border-top-color: var(--success); }
+.cv-q { font-size: 12px; font-weight: 600; color: var(--text-3); }
+.cv-a { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; color: var(--text); }
+.cv-tile.bad .cv-a { color: var(--danger); }
+.cv-m { font-size: 12px; color: var(--muted); }
+.cv-statuses { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.cv-bar { position: relative; display: block; height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; min-width: 60px; }
+.cv-bar-fill { position: absolute; inset: 0 auto 0 0; background: var(--success); border-radius: var(--r-pill); }
+.cv-prog { display: flex; align-items: center; gap: 8px; }
+.cv-prog .cv-bar { width: 90px; }
+
+.cv-legend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--text-3); }
+.cv-key { display: inline-flex; align-items: center; gap: 5px; }
+.cv-sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.cv-sw.k-dev { background: var(--k-dev); }
+.cv-sw.k-test { background: var(--k-test); }
+.cv-sw.k-buffer { background: var(--k-buffer); }
+.cv-sw.line { height: 2px; background: var(--text); border-radius: 1px; }
+.cv-sw.st-unused { background: var(--st-unused-bg); border: 1px solid var(--st-unused-fg); }
+.cv-sw.st-used { background: var(--st-used-bg); border: 1px solid var(--st-used-fg); }
+.cv-sw.st-over { background: var(--st-over-bg); border: 1px solid var(--st-over-fg); }
+.cv-sw.st-away { background: repeating-linear-gradient(135deg, var(--stripe-bg) 0 3px, var(--stripe) 3px 5px); }
+.cv-sw.st-off { background: var(--surface-2); border: 1px solid var(--border); }
+
+/* weekly chart: HTML columns, one y-axis, available as a line per column */
+.cv-chart { display: flex; gap: 6px; margin-top: 8px; }
+.cv-yaxis { display: flex; flex-direction: column; justify-content: space-between; height: 220px; font-size: 11px; color: var(--muted); text-align: right; min-width: 22px; }
+.cv-plot { position: relative; flex: 1; min-width: 0; }
+.cv-grid { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid var(--border-light); }
+.cv-cols { position: relative; height: 220px; display: flex; gap: 2px; align-items: flex-end; }
+.cv-col { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.cv-col:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.cv-col.today { background: var(--warn-softest); }
+.cv-stack { width: 100%; display: flex; flex-direction: column; gap: 2px; }
+.cv-seg { min-height: 2px; flex-basis: 0; }
+.cv-stack > .cv-seg:first-child { border-radius: 4px 4px 0 0; }
+.cv-seg.k-dev { background: var(--k-dev); }
+.cv-seg.k-test { background: var(--k-test); }
+.cv-seg.k-buffer { background: var(--k-buffer); }
+.cv-avail { position: absolute; left: -1px; right: -1px; height: 2px; background: var(--text); }
+.cv-over-dot { position: absolute; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 800; color: var(--danger); }
+.cv-xaxis { display: flex; gap: 2px; margin-top: 4px; }
+.cv-xaxis span { flex: 1; font-size: 10px; color: var(--muted); text-align: center; white-space: nowrap; overflow: visible; }
+.cv-xaxis span.today { color: var(--warn-text); font-weight: 700; }
+.cv-col:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* the column's hover plate (useTip, styled by .dash-tip in styles.css): who is booked, load vs availability */
+.cv-tip-people { display: grid; grid-template-columns: auto auto; column-gap: 12px; row-gap: 1px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.cv-tip-people .num { text-align: right; }
+
+.cv-team-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-sm); }
+.cv-team { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 12px; }
+.cv-team th, .cv-team td { border-right: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); padding: 0; }
+.cv-team .cvt-lbl {
+  position: sticky; left: 0; z-index: 2; background: var(--surface); text-align: left; padding: 0 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; border-right: 1px solid var(--border);
+}
+.cv-team thead th { background: var(--surface); font-weight: 600; text-align: center; }
+.cv-team .cvt-month-row th { height: 22px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: var(--surface-2); }
+.cv-team .cvt-month-row th.alt { background: var(--surface-alt); }
+.cv-team .cvt-month-row th.cvt-lbl { background: var(--surface); text-transform: none; letter-spacing: 0; vertical-align: middle; }
+.cv-team .cvt-week-row th { height: 36px; font-size: 13px; line-height: 1.2; }
+.cvt-date { font-size: 10px; color: var(--muted-2); font-weight: 400; }
+.cv-team .month-start { border-left: 2px solid var(--border-strong); }
+.cv-team .today-col { background-color: var(--warn-softest); }
+.cv-team .cvt-week-row th.today-col { color: var(--warn-text); }
+.cv-team tr.cvt-group th, .cv-team tr.cvt-group td { height: 24px; background: var(--surface-2); }
+.cvt-group-label { margin-right: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.cv-team tr.cvt-person th, .cv-team tr.cvt-person td { height: 28px; }
+.cvt-name { font-weight: 600; }
+.cv-team tr.cvt-sum th, .cv-team tr.cvt-sum td { height: 28px; background: var(--surface-2); text-align: center; }
+.cv-team tr.cvt-sum th { text-align: left; font-weight: 600; }
+.cv-team .pcell { text-align: center; cursor: pointer; font-size: 11px; font-variant-numeric: tabular-nums; }
+.cv-team .pcell.st-unused { background-color: var(--st-unused-bg); color: var(--st-unused-fg); }
+.cv-team .pcell.st-used { background-color: var(--st-used-bg); color: var(--st-used-fg); }
+.cv-team .pcell.st-over { background-color: var(--st-over-bg); color: var(--st-over-fg); font-weight: 700; }
+.cv-team .pcell.st-away { background: repeating-linear-gradient(135deg, var(--stripe-bg) 0 5px, var(--stripe) 5px 7px); color: var(--muted); }
+.cv-team .pcell.st-off { background-color: var(--surface-2); cursor: default; }
+.cv-team .pcell.part-away { box-shadow: inset 0 -3px 0 var(--warn); }
+.cv-team .pcell:hover { outline: 1px solid var(--muted-2); outline-offset: -1px; }
+/* the cells carry the hover plate (useTip), which makes them focusable: the same ring as the chart's columns */
+.cv-team .pcell:focus-visible, .cv-team .cvt-sum td:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* the Booked FTE plate's split, in the kind colours of the toast-dark plate */
+.dash-tip .k-dev { color: var(--k-dev); }
+.dash-tip .k-test { color: #8dbcf5; }
+.dash-tip .k-buffer { color: #f4a3c1; }
+.cv-team .sum-num { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cv-team .sum-stack { display: inline-flex; gap: 3px; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cv-team .sum-stack .k-dev { color: var(--k-dev-fg); }
+.cv-team .sum-stack .k-test { color: var(--k-test-fg); }
+.cv-team .sum-stack .k-buffer { color: var(--k-buffer-fg); }
+
+.cv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cv-table th { text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.cv-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-light); }
+.cv-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Scope Overview: an epic row opens to its features, indented under it in the same columns */
+.cv-desc { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cv-desc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cv-scope tr.cv-epic td { font-weight: 600; }
+.cv-scope tr.cv-sub td { background: var(--surface-2); font-size: 12px; padding-top: 4px; padding-bottom: 4px; }
+.cv-scope tr.cv-sub .cv-desc { padding-left: 26px; }
+.cv-scope tr.cv-sub .cv-prog .cv-bar { width: 70px; }
+.cv-link { border: none; background: none; padding: 0; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
+.cv-link:hover { text-decoration: underline; color: var(--accent); }
+
+.cv-risks { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.cv-risks h3 { font-size: 13px; margin: 4px 0 6px; color: var(--text-2); }
+.cv-risk-item { display: flex; align-items: center; gap: 6px; width: 100%; border: none; background: none; padding: 4px 6px; border-radius: var(--r-sm); cursor: pointer; font: inherit; color: var(--text); text-align: left; }
+.cv-risk-item:hover { background: var(--surface-3); }
+.cv-risk-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto; }
+
+/* ---------- roadmap ---------- */
+.gv { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
+.gv-bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--border); }
+.gv-wrap { flex: 1; min-height: 0; overflow: auto; }
+.gv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.gv-table thead th { position: sticky; top: 0; z-index: 3; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; color: var(--muted); height: 54px; padding: 0; text-align: center; }
+.gv-table thead th.gv-lbl { z-index: 4; text-align: left; padding-left: 10px; font-size: 13px; }
+.gv-table th.today, .gv-table td.today { background: var(--warn-softest); }
+.gv-table td.band { background-color: color-mix(in srgb, var(--ph, var(--danger)) 6%, transparent); }
+.gv-table th.band { background-color: color-mix(in oklch, var(--ph, var(--danger)) 16%, var(--surface)); }
+.gv-table td.rel { box-shadow: inset -2px 0 0 color-mix(in srgb, var(--danger) 45%, transparent); }
+.gv-wk { line-height: 20px; }
+.gv-date { line-height: 20px; font-weight: 400; }
+.gv-lbl { position: sticky; left: 0; z-index: 2; background: var(--surface); border-right: 1px solid var(--border); }
+.gv-row td { height: 40px; padding: 0; border-bottom: 1px solid var(--border-light); }
+.gv-row.d0 td { height: 46px; }
+.gv-row.d0 .gv-lbl { background: var(--surface-2); }
+.gv-row.d0 .lbl-name { font-weight: 700; }
+.gv-row.d1 .lbl-name { font-weight: 600; }
+.gv-name { display: flex; align-items: center; gap: 6px; height: 100%; min-width: 0; padding-right: 6px; }
+.gv-name .lbl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; font-size: 14px; }
+.gv-actions { display: none; gap: 2px; flex: none; }
+.gv-name:hover .gv-actions { display: inline-flex; }
+.gv-table th.today, .gv-table td.today { box-shadow: inset 2px 0 0 var(--danger); }
+.gv-cell { position: relative; }
+/* the drag-to-add preview, one slice per week */
+.gv-seg.ghost { position: absolute; top: 15px; height: 18px; left: 1px; right: 1px; border-radius: 4px; opacity: 0.35; pointer-events: none; }
+/* One lane per row, anchored in the row's first week cell and as wide as the timeline: the bars are
+   positioned in it by week index, so a label, a progress fill or a hatch can span cells. The sticky
+   name column sits above it. */
+.gv-lane { position: absolute; top: 0; bottom: 0; left: 0; pointer-events: none; z-index: 1; }
+.gv-plan, .gv-act, .gv-after, .gv-ms { position: absolute; box-sizing: border-box; }
+/* the plan: a thin dotted bar above the actual one (the planner's .gbar.plan look) */
+.gv-plan { top: 5px; height: 7px; border: 1.5px dashed var(--plan-line); border-radius: 4px; }
+/* the actual bar, painted in --c (the status colour or the bar's own); the lighter base shows the
+   remaining part, .gv-fill the progress */
+.gv-act { top: 15px; height: 18px; border-radius: 5px; overflow: hidden; pointer-events: auto; cursor: pointer;
+  background: color-mix(in srgb, var(--c) 45%, var(--surface)); color: #fff; font-size: 12px; font-weight: 600; line-height: 18px; white-space: nowrap; }
+.gv-act:hover { filter: brightness(1.08); }
+.gv-fill { position: absolute; inset: 0 auto 0 0; background: var(--c); }
+.gv-act.stuck { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 30%, var(--surface)) 0 4px, color-mix(in srgb, var(--c) 60%, var(--surface)) 4px 8px); }
+.gv-act.stuck .gv-fill { background: color-mix(in srgb, var(--c) 85%, var(--surface)); }
+.gv-over { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--danger) 18%, transparent) 0 4px, color-mix(in srgb, var(--danger) 60%, transparent) 4px 8px); }
+.gv-act.unstarted { background: var(--surface-2); border: 1.5px dashed var(--border-strong); color: var(--text-3); }
+.gv-act.unstarted .gv-fill { display: none; }
+.gv-act-lbl { position: absolute; inset: 0; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 2px rgba(0, 0, 0, 0.25); }
+.gv-act.unstarted .gv-act-lbl { text-shadow: none; }
+.gv-act.summary { top: 18px; height: 12px; border-radius: 4px; font-size: 11px; line-height: 12px; }
+.gv-act.summary .gv-act-lbl { display: none; }
+/* text that did not fit in the bar, and the +Nw delay, sit to the right of it */
+.gv-after { top: 15px; height: 18px; line-height: 18px; padding-left: 6px; white-space: nowrap; font-size: 12px; font-weight: 600; color: var(--text-3); pointer-events: auto; cursor: pointer; }
+.gv-after .late { color: var(--danger); font-weight: 700; }
+.gv-after .done { color: var(--success); }
+.gv-after .status { color: var(--text-2); }
+.gv-act.summary + .gv-after { top: 14px; font-size: 11px; }
+/* a milestone: the ◆ instead of a bar */
+.gv-ms { top: 0; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--c, var(--text)); text-shadow: 0 0 2px var(--surface), 0 0 2px var(--surface); pointer-events: auto; cursor: pointer; }
+.gv-ms.unstarted { color: var(--text-3); }
+.gv-ms:hover { filter: brightness(1.15); }
+/* the switches and the legend in the toolbar */
+.gv-bar .cv-check { margin-left: 0; }
+.gv-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.gv-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.gv-key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--c); }
+.gv-key.plan { width: 18px; height: 7px; border: 1.5px dashed var(--plan-line); border-radius: 4px; background: none; box-sizing: border-box; }
+
+/* a feature row's status and customer tags, side by side */
+.cv-scope .cv-tags { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }

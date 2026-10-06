@@ -1,0 +1,73 @@
+/* Status tab (.sv): one wide table, features under their epics and stories under features, every cell edited in place. */
+
+.sv { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
+.sv-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 16px; border-bottom: 1px solid var(--border); }
+.sv-bar h2 { font-size: 15px; margin: 0; }
+.sv-bar .spacer { flex: 1; }
+.sv-total { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.sv-total b { color: var(--text); font-size: 13px; }
+.sv-total b.neg { color: var(--danger); }
+/* the Deadline cell: a week tag and its Monday, or a dash while unset */
+.sv-table .sv-week { white-space: nowrap; }
+.sv-wrap { flex: 1; min-height: 0; overflow: auto; }
+/* the toolbar's search box: as wide as the planner's renders (360px name column minus its padding and margin) */
+.topbar-tools .sv-search { width: 320px; }
+
+/* separate + spacing 0: `collapse` loses the borders of sticky cells in Safari */
+.sv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 12px; }
+.sv-table th, .sv-table td { border-right: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); padding: 4px 8px; vertical-align: middle; text-align: left; }
+.sv-table thead th { position: sticky; top: 0; z-index: 3; background: var(--surface); font-size: 11px; font-weight: 600; color: var(--muted); height: 34px; white-space: nowrap; }
+.sv-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.sv-table th.num { text-align: right; }
+.sv-table .center { text-align: center; }
+/* Description, Status and Assignee stay put while the rest scrolls (`left` is set inline from the
+   column widths); every row paints its own background under them so nothing shows through */
+.sv-table .sv-pin { position: sticky; z-index: 2; background: var(--surface); }
+.sv-table .sv-pin.last { border-right: 1px solid var(--border); box-shadow: 2px 0 0 var(--border-light); }
+.sv-table thead th.sv-pin { z-index: 4; }
+.sv-table tr.sv-epic td { background: var(--surface-2); font-weight: 600; height: 32px; }
+.sv-table tr.sv-feature td { height: 30px; }
+.sv-table tr.sv-story td { height: 28px; }
+.sv-table tr.sv-feature:hover td, .sv-table tr.sv-story:hover td { background: color-mix(in srgb, var(--accent) 4%, var(--surface)); }
+.sv-table tr.sv-feature.blocked td.sv-pin:first-child, .sv-table tr.sv-story.blocked td.sv-pin:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+/* a feature's hours once it has stories: their sum, not typed over */
+.sv-table .sv-sum { color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.sv-desc { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* the feature's caret (or its spacer) gives the first indent; stories sit one step further in */
+.sv-feature .sv-desc { padding-left: 6px; }
+.sv-story .sv-desc { padding-left: 44px; }
+.sv-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto; }
+.sv-link { border: none; background: none; padding: 0; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
+.sv-link:hover { text-decoration: underline; color: var(--accent); }
+.sv-info { flex: none; border: none; background: none; padding: 0 2px; cursor: pointer; color: var(--muted-2); font-size: 13px; line-height: 1; visibility: hidden; }
+.sv-feature:hover .sv-info { visibility: visible; }
+.sv-info:hover { color: var(--accent); }
+/* "+ Story" on a feature row and ✕ on a story row show on hover, like ⓘ */
+.sv-add { flex: none; visibility: hidden; margin-left: 2px; }
+.sv-feature:hover .sv-add, .sv-add:focus-visible { visibility: visible; }
+.sv-del { flex: none; border: none; background: none; padding: 0 4px; cursor: pointer; color: var(--muted-2); font-size: 12px; line-height: 1; visibility: hidden; }
+.sv-story:hover .sv-del, .sv-del:focus-visible { visibility: visible; }
+.sv-del:hover { color: var(--danger); }
+/* a story's key and name are edited in place: the button shows the value, the input replaces it */
+.sv-story .sv-key { flex: none; }
+.sv-story button.sv-name { text-align: left; padding: 2px 4px; margin: -2px -4px; }
+.sv-story .rem-input.text { flex: 1 1 auto; }
+.sv-new-input { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; padding: 3px 6px; }
+.sv-table tr.sv-new td.hint { font-size: 11px; }
+.sv-count { font-weight: 400; color: var(--muted); font-size: 11px; white-space: nowrap; }
+
+/* clamped free text; the full text is in the hover plate */
+.sv-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; line-height: 1.3; text-align: left; width: 100%; }
+button.sv-text { border: none; background: none; padding: 2px 4px; margin: -2px -4px; border-radius: var(--r-sm); color: inherit; font: inherit; cursor: pointer; min-height: 18px; }
+button.sv-text:hover { background: var(--surface-3); }
+button.sv-text.empty { color: var(--muted-2); }
+
+/* .popover's 360px cap is lifted for this body (styles.css); it sizes itself and clamps to the viewport */
+.sv-textpop { display: flex; flex-direction: column; gap: 6px; width: 420px; max-width: calc(100vw - 32px); }
+.sv-textpop textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: 12px; padding: 6px 8px; min-height: 90px; }
+.sv-textpop-foot { display: flex; align-items: center; gap: 6px; }
+/* the hint gives way first, so the buttons are never pushed past the edge */
+.sv-textpop-foot .hint { flex: 1; min-width: 0; }
+.sv-textpop-foot .spacer { flex: none; }
+.sv-empty { padding: 40px; color: var(--muted); }
