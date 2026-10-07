@@ -99,13 +99,32 @@ describe('rollup', () => {
     expect(r.label).toBe('50%')
   })
 
-  it('reads Complete only when every child is complete, and Blocked over On hold', () => {
+  it('reads Complete only when every child is complete', () => {
     const today = '2026-07-22'
     const done = barShape({ start: W25, weeks: 1, actualStart: W25, actualEnd: W25, status: 'Complete' }, today)
-    expect(rollup([done, done])!.status).toBe('Complete')
+    const r = rollup([done, done])!
+    expect(r.status).toBe('Complete')
+    expect(r.counts).toEqual({ total: 2, complete: 2, inProgress: 0, blocked: 0, onHold: 0, planned: 0 })
+  })
+
+  it('stays In progress with blocked or on-hold children, and counts them', () => {
+    const today = '2026-07-22'
+    const done = barShape({ start: W25, weeks: 1, actualStart: W25, actualEnd: W25, status: 'Complete' }, today)
     const hold = barShape({ start: W25, weeks: 1, actualStart: W25, status: 'On hold' }, today)
     const blocked = barShape({ start: W25, weeks: 1, actualStart: W25, status: 'Blocked' }, today)
-    expect(rollup([hold, blocked, done])!.status).toBe('Blocked')
+    const r = rollup([hold, blocked, done])!
+    expect(r.status).toBe('In progress')
+    expect(r.counts).toEqual({ total: 3, complete: 1, inProgress: 0, blocked: 1, onHold: 1, planned: 0 })
+  })
+
+  it('is Planned while nothing has started', () => {
+    const today = '2026-06-01'
+    const a = barShape({ start: W25, weeks: 2 }, today)
+    const b = barShape({ start: W28, weeks: 2 }, today)
+    const r = rollup([a, b])!
+    expect(r.status).toBe('Planned')
+    expect(r.started).toBe(false)
+    expect(r.counts!.planned).toBe(2)
   })
 })
 

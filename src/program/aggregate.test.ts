@@ -43,7 +43,8 @@ describe('teamCriticalPath', () => {
     expect(s.actualStart).toBe(W26)
     expect(s.end).toBe(W30) // the latest bar is unstarted: its planned end is where the path ends
     expect(s.delayWeeks).toBe(0)
-    expect(s.status).toBe('Complete') // the only started bar is complete
+    expect(s.status).toBe('In progress') // one bar is complete, but two are still to come
+    expect(s.counts).toEqual({ total: 3, complete: 1, inProgress: 0, blocked: 0, onHold: 0, planned: 2 })
   })
 
   it('is a planned, unstarted bar while nothing has started', () => {
@@ -66,7 +67,7 @@ describe('teamCriticalPath', () => {
     expect(s.delayWeeks).toBeGreaterThan(0)
   })
 
-  it('takes the most severe status and ignores a parent row\'s own segments', () => {
+  it('stays In progress with blocked or on-hold bars, counts them, and ignores a parent row\'s own segments', () => {
     const db = doc({
       workstreams: [
         { id: 'p', parentId: null, name: 'Parent', segments: [{ start: '2026-01-05', weeks: 40, actualStart: '2026-01-05', status: 'Blocked' }] },
@@ -76,7 +77,8 @@ describe('teamCriticalPath', () => {
     })
     const s = teamCriticalPath(team('t', db), TODAY)!
     expect(s.plannedStart).toBe(W25) // not the parent's January
-    expect(s.status).toBe('On hold')
+    expect(s.status).toBe('In progress')
+    expect(s.counts).toEqual({ total: 2, complete: 0, inProgress: 1, blocked: 0, onHold: 1, planned: 0 })
     expect(s.progress).toBe(30)
   })
 })

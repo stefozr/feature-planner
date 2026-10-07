@@ -1,6 +1,6 @@
 import { DB, Epic, Feature, Milestone, Release, RoadmapStatus } from '../types'
 import { addWeeks, gridWeeks, mondayOf, weekFte, weeksBetween, type WeekFte } from '../logic'
-import { BarShape, barShape, drawnSpan } from '../gantt/bars'
+import { BarCounts, BarShape, barShape, drawnSpan } from '../gantt/bars'
 
 /**
  * What the Program team computes from the other teams' documents. Everything here is pure: the
@@ -88,15 +88,14 @@ export function teamLoad(team: TeamDoc, week: string): TeamLoad {
 }
 
 /** Blocked outranks On hold outranks In progress outranks Planned; Complete only when everything is. */
-const SEVERITY: Record<RoadmapStatus, number> = { Complete: 0, Planned: 1, 'In progress': 2, 'On hold': 3, Blocked: 4 }
-
 /**
  * A team's critical path: one bar from the earliest of its roadmap bars to the latest. The dotted
  * part runs from the earliest planned start to the latest planned end; the solid one from the
  * earliest actual start to the latest end of any bar — a started bar's actual or forecast end, an
- * unstarted bar's planned end — with the mean progress and the most severe status of what has
- * started. Taken over every leaf row of the team; a parent row's own segments are ignored, as the
- * team's roadmap ignores them. Null without bars.
+ * unstarted bar's planned end — with the mean progress. Like a roadmap roll-up it reads Complete
+ * only when every bar is, In progress once any has started, Planned before that; Blocked and On
+ * hold bars are counted, not propagated. Taken over every leaf row of the team; a parent row's own
+ * segments are ignored, as the team's roadmap ignores them. Null without bars.
  */
 export function teamCriticalPath(team: TeamDoc, todayISO: string): BarShape | null {
   const ws = team.db.workstreams
@@ -112,8 +111,8 @@ export function teamCriticalPath(team: TeamDoc, todayISO: string): BarShape | nu
   let actualStart: string | undefined
   let end: string | undefined
   let progress = 0
-  let status: RoadmapStatus = 'Complete'
   let forecast = false
+  const counts: BarCounts = { total: shapes.length, complete: 0, inProgress: 0, blocked: 0, onHold: 0, planned: 0 }
   for (const s of shapes) {
     if (s.plannedStart < plannedStart) plannedStart = s.plannedStart
     if (s.plannedEnd > plannedEnd) plannedEnd = s.plannedEnd
@@ -122,14 +121,19 @@ export function teamCriticalPath(team: TeamDoc, todayISO: string): BarShape | nu
     if (!end || last > end) end = last
     progress += s.progress
     forecast ||= s.forecast
-    if (s.started && SEVERITY[s.status] > SEVERITY[status]) status = s.status
+    if (!s.started) counts.planned++
+    else if (s.status === 'Complete') counts.complete++
+    else if (s.status === 'Blocked') counts.blocked++
+    else if (s.status === 'On hold') counts.onHold++
+    else counts.inProgress++
   }
   const started = !!actualStart
+  const status: RoadmapStatus = counts.complete === shapes.length ? 'Complete' : started ? 'In progress' : 'Planned'
   return {
     plannedStart,
     plannedEnd,
     started,
-    status: started ? status : 'Planned',
+    status,
     actualStart,
     end: started ? end : undefined,
     delayWeeks: started && end ? Math.max(0, weeksBetween(plannedEnd, end)) : 0,
@@ -137,6 +141,7 @@ export function teamCriticalPath(team: TeamDoc, todayISO: string): BarShape | nu
     forecast,
     label: `${Math.round(progress / shapes.length)}%`,
     milestone: false,
+    counts,
   }
 }
 

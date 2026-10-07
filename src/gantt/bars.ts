@@ -27,6 +27,19 @@ export interface BarShape {
   label: string
   reason?: string
   milestone: boolean
+  /** set on a parent's roll-up only: how many descendant bars there are, and how many in each state */
+  counts?: BarCounts
+}
+
+export interface BarCounts {
+  total: number
+  complete: number
+  /** started and neither Complete, Blocked nor On hold */
+  inProgress: number
+  blocked: number
+  onHold: number
+  /** not started */
+  planned: number
 }
 
 /** Forecasting starts once either has happened, so the estimate does not jump around at the start. */
@@ -144,12 +157,11 @@ export function mergeBars(bars: RoadmapBar[], start: string, weeks: number, toda
   return out
 }
 
-/** Blocked outranks On hold outranks In progress outranks Planned; Complete only when everything is. */
-const SEVERITY: Record<RoadmapStatus, number> = { Complete: 0, Planned: 1, 'In progress': 2, 'On hold': 3, Blocked: 4 }
-
 /**
- * A parent row's bar: the envelope of its descendants' planned and actual spans, their mean
- * progress and the most severe status among them. Null without children bars.
+ * A parent row's bar: the envelope of its descendants' planned and actual spans and their mean
+ * progress. It reads Complete only when every descendant is, In progress once any has started,
+ * Planned before that; Blocked and On hold descendants are counted (for the tooltip), not
+ * propagated to the colour. Null without children bars.
  */
 export function rollup(shapes: BarShape[]): BarShape | null {
   if (!shapes.length) return null
@@ -158,8 +170,8 @@ export function rollup(shapes: BarShape[]): BarShape | null {
   let actualStart: string | undefined
   let end: string | undefined
   let progress = 0
-  let status: RoadmapStatus = 'Complete'
   let forecast = false
+  const counts: BarCounts = { total: shapes.length, complete: 0, inProgress: 0, blocked: 0, onHold: 0, planned: 0 }
   for (const s of shapes) {
     if (s.plannedStart < plannedStart) plannedStart = s.plannedStart
     if (s.plannedEnd > plannedEnd) plannedEnd = s.plannedEnd
@@ -167,15 +179,20 @@ export function rollup(shapes: BarShape[]): BarShape | null {
     if (s.end && (!end || s.end > end)) end = s.end
     progress += s.progress
     forecast ||= s.forecast
-    if (SEVERITY[s.status] > SEVERITY[status]) status = s.status
+    if (!s.started) counts.planned++
+    else if (s.status === 'Complete') counts.complete++
+    else if (s.status === 'Blocked') counts.blocked++
+    else if (s.status === 'On hold') counts.onHold++
+    else counts.inProgress++
   }
   progress = Math.round(progress / shapes.length)
   const started = !!actualStart
+  const status: RoadmapStatus = counts.complete === shapes.length ? 'Complete' : started ? 'In progress' : 'Planned'
   return {
     plannedStart,
     plannedEnd,
     started,
-    status: started ? status : 'Planned',
+    status,
     actualStart,
     end,
     delayWeeks: end ? weeksBetween(plannedEnd, end) : 0,
@@ -183,6 +200,7 @@ export function rollup(shapes: BarShape[]): BarShape | null {
     forecast,
     label: `${progress}%`,
     milestone: false,
+    counts,
   }
 }
 
