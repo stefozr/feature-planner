@@ -367,29 +367,33 @@ select:disabled { background-image: none; padding-right: 9px; }
 .grid-outer.resizing { cursor: col-resize; }
 .grid-outer.resizing .grid-wrap { user-select: none; }
 table.planner { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
-.planner th { padding: 0; font-weight: 600; font-size: 13px; }
-.planner thead th {
-  position: sticky; top: 0; z-index: 20; background: var(--surface);
-  border-bottom: 1px solid var(--border); height: 44px;
+/* ---------- timeline header (planner + roadmap): months / phases / weeks, see ui/TimelineHead.tsx ---------- */
+.tl-head th {
+  position: sticky; top: 0; z-index: 20; background: var(--surface); padding: 0;
+  border-bottom: 1px solid var(--border); height: 44px; font-weight: 600; font-size: 13px;
 }
-.planner thead tr.month-row th { top: 0; height: 22px; }
-.planner thead tr.timeline-row th { top: 22px; height: 32px; }
-.planner thead tr.week-row th { top: 54px; }
-.planner thead th.month-head {
+.tl-head tr.month-row th { top: 0; height: 22px; }
+.tl-head tr.timeline-row th { top: 22px; height: 32px; }
+.tl-head tr.week-row th { top: 54px; }
+.tl-head th.month-head {
   font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--muted); background: var(--surface-2); border-left: 2px solid var(--border-strong);
 }
-.planner thead th.month-head.alt { background: var(--surface-alt); }
-.planner thead tr.week-row th.month-start,
+.tl-head th.month-head.alt { background: var(--surface-alt); }
+.tl-head tr.week-row th.month-start,
 .planner td.month-start { border-left: 2px solid var(--border-strong); }
-.planner thead th.today-col { background: var(--warn-softest); }
+.tl-head th.today-col { background: var(--warn-softest); }
 .planner td.today-col { background: var(--warn-softest); }
-.planner thead tr.week-row th.today-col { color: var(--warn-text); }
+.tl-head tr.week-row th.today-col { color: var(--warn-text); }
+/* the label column's header cell: sticky on both axes, above the week cells when scrolling sideways */
+.tl-head th.tl-lbl {
+  position: sticky; left: 0; z-index: 30; text-align: left; padding: 0 10px;
+  background: var(--surface); border-right: 1px solid var(--border);
+}
 .today-chip {
   display: inline-block; padding: 0 5px; border-radius: var(--r-pill); line-height: 13px;
   background: var(--warn); color: #fff; font-size: 9px; font-weight: 700; text-transform: none; letter-spacing: 0;
 }
-.planner thead th.lbl-col { z-index: 30; text-align: left; padding: 0 10px; }
 .planner td { height: 40px; padding: 0; border-bottom: 1px solid var(--border-light); }
 .planner td.cell-week { border-right: 1px solid var(--border-light); position: relative; }
 .planner .lbl-col {
@@ -890,16 +894,16 @@ tr.frow-group .lbl-name { font-weight: 700; }
 .fplan tr.frow-feature td.cell-week { cursor: cell; }
 /* milestone windows (system test…): header weeks tinted red, thin red lines at the edges down the
    body; the phase row above names them */
-.fplan thead th.band { background-color: color-mix(in oklch, var(--ph, var(--danger)) 16%, var(--surface)); }
+.tl-head th.band { background-color: color-mix(in oklch, var(--ph, var(--danger)) 16%, var(--surface)); }
 /* declared on the cell itself: a var() in a :root token would resolve --ph there (unset → always red) */
-.fplan .band, .fplan .after-band, .fplan thead th.phase-cell { --band-edge: color-mix(in srgb, var(--ph, var(--danger)) 80%, transparent); }
-.fplan .band-start { --edge-l: inset 2px 0 0 var(--band-edge); }
-.fplan .band-end { --edge-r: inset -2px 0 0 var(--band-edge); }
-.fplan .band-start, .fplan .band-end { box-shadow: var(--edge-l, 0 0 transparent), var(--edge-r, 0 0 transparent); }
+.fplan .band, .fplan .after-band, .tl-head .band, .tl-head .after-band, .tl-head th.phase-cell { --band-edge: color-mix(in srgb, var(--ph, var(--danger)) 80%, transparent); }
+.fplan .band-start, .tl-head .band-start { --edge-l: inset 2px 0 0 var(--band-edge); }
+.fplan .band-end, .tl-head .band-end { --edge-r: inset -2px 0 0 var(--band-edge); }
+.fplan .band-start, .fplan .band-end, .tl-head .band-start, .tl-head .band-end { box-shadow: var(--edge-l, 0 0 transparent), var(--edge-r, 0 0 transparent); }
 /* a phase edge on a month boundary replaces the month line instead of doubling it */
-.planner.fplan .band-start.month-start { --edge-l: 0 0 transparent; border-left-color: var(--band-edge); }
-.fplan .band-end.next-month { --edge-r: 0 0 transparent; }
-.planner.fplan .after-band.month-start:not(.band-start) { border-left-color: color-mix(in srgb, var(--ph-prev, var(--danger)) 80%, transparent); }
+.planner.fplan .band-start.month-start, .tl-head .band-start.month-start { --edge-l: 0 0 transparent; border-left-color: var(--band-edge); }
+.fplan .band-end.next-month, .tl-head .band-end.next-month { --edge-r: 0 0 transparent; }
+.planner.fplan .after-band.month-start:not(.band-start), .tl-head .after-band.month-start:not(.band-start) { border-left-color: color-mix(in srgb, var(--ph-prev, var(--danger)) 80%, transparent); }
 .fplan td.kind-dev { background-color: var(--k-dev-bg); }
 .fplan td.kind-test { background-color: var(--k-test-bg); }
 .fplan td.kind-buffer { background-color: var(--k-buffer-bg); }
@@ -936,13 +940,13 @@ tr.frow-group .lbl-name { font-weight: 700; }
 }
 .fplan td.cell-week:has(.fte-heat) { text-align: center; }
 /* timeline row: a centred name over each phase's weeks, and over each one-day event's week */
-.fplan thead th.phase-empty { background: var(--surface); }
-.fplan thead tr.timeline-row th.month-start { border-left: 2px solid var(--border-strong); }
-.fplan thead th.phase-cell {
+.tl-head th.phase-empty { background: var(--surface); }
+.tl-head tr.timeline-row th.month-start { border-left: 2px solid var(--border-strong); }
+.tl-head th.phase-cell {
   background: color-mix(in oklch, var(--ph, var(--danger)) 16%, var(--surface));
   text-align: center; padding: 0 4px; overflow: hidden;
 }
-.fplan thead th.phase-cell { vertical-align: middle; }
+.tl-head th.phase-cell { vertical-align: middle; }
 .phase-name {
   font-size: 11px; font-weight: 700; color: var(--text); line-height: 1.15; max-height: 30px; text-align: center;
   white-space: normal; overflow: hidden;

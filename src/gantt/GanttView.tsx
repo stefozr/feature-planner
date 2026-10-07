@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { DB, GanttItem, Milestone, ROADMAP_STATUSES, Release, RoadmapStatus } from '../types'
 import { addWeeks, mondayOf, uid, weekLabel, weekRange, weekTag } from '../logic'
 import { usePersisted } from '../ui/usePersisted'
 import { GanttBarDialog, GanttItemDialog } from '../ui/FeatureDialogs'
-import { BarShape, adjacentBars, barColor, barShape, isLateOrStuck, lateTag, mergeBars, rollup, solidSpan, statusColor } from './bars'
+import { BarCounts, BarShape, adjacentBars, barColor, barShape, isLateOrStuck, lateTag, mergeBars, rollup, solidSpan, statusColor } from './bars'
 import { useConfirm } from '../ui/ConfirmDialog'
+import { useTip } from '../ui/useTip'
+import { TimelineHead } from '../ui/TimelineHead'
+import { useTimelineBands } from '../ui/useTimelineBands'
 import '../capacity/capacity.css'
 
 interface Props {
@@ -44,6 +47,15 @@ export const ROADMAP_COL = 51
 const LABEL = 380
 /** about what one character of the bar label takes, for deciding whether the text fits inside */
 const CHAR_W = 6.8
+
+/** the states a roll-up counts its bars in, in the order the tooltip lists them */
+const COUNT_ROWS: { key: keyof BarCounts; status: RoadmapStatus; label: string }[] = [
+  { key: 'complete', status: 'Complete', label: 'Complete' },
+  { key: 'inProgress', status: 'In progress', label: 'In progress' },
+  { key: 'blocked', status: 'Blocked', label: 'Blocked' },
+  { key: 'onHold', status: 'On hold', label: 'On hold' },
+  { key: 'planned', status: 'Planned', label: 'Not started' },
+]
 
 interface Node {
   item: GanttItem
@@ -89,6 +101,8 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
   const dbRef = useRef(db)
   dbRef.current = db
   const { ask: confirm, ui: confirmUI } = useConfirm()
+  const { attach, hide: hideTip, element: tipEl } = useTip()
+  const wrapRef = useRef<HTMLDivElement>(null)
   const today = mondayOf(todayISO)
   const tree = useMemo(() => buildTree(db.workstreams), [db.workstreams])
   const colors = db.settings.optionColors
@@ -138,22 +152,16 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
     return out
   }, [db, rowBars, pinned, extraWeeks])
   const weekIndex = useMemo(() => new Map(weeks.map((w, i) => [w, i])), [weeks])
-  /** phase weeks, and each one-day event's week, → its colour as `--ph` (CSS falls back to red); a one-day event wins its week */
-  const bandWeeks = new Set<string>()
-  const bandTint = new Map<string, React.CSSProperties>()
-  const mark = (ws: string[], c: string | undefined) => {
-    for (const w of ws) {
-      if (bandWeeks.has(w)) continue
-      bandWeeks.add(w)
-      if (c) bandTint.set(w, { '--ph': c } as React.CSSProperties)
-    }
-  }
-  for (const m of db.milestones) if (!m.end) mark([mondayOf(m.date)], m.color)
-  for (const r of db.releases) if (r.date) mark([mondayOf(r.date)], colorOf(r.color))
-  for (const m of db.milestones) if (m.end) mark(weekRange(mondayOf(m.date), mondayOf(m.end)), m.color)
-  const msByWeek = new Map<string, string[]>()
-  for (const m of db.milestones) msByWeek.set(mondayOf(m.date), [...(msByWeek.get(mondayOf(m.date)) ?? []), m.name])
-  const relByWeek = new Map(db.releases.filter((r) => r.date).map((r) => [mondayOf(r.date!), r]))
+  // the months, phases and one-day events of the header, and the same tints for the body cells
+  const bands = useTimelineBands(weeks, today, db.milestones, db.releases, colorOf)
+
+  // initial horizontal position: today with a month of lead-in, like the planner
+  useEffect(() => {
+    const el = wrapRef.current
+    const idx = weeks.indexOf(today)
+    if (el && idx >= 0) el.scrollLeft = Math.max(0, (idx - 4) * ROADMAP_COL)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weeks[0]])
 
   // "Late / blocked only": a leaf stays when one of its bars is late, Blocked or On hold; a parent when a descendant stays
   const keep = (n: Node): boolean => {
@@ -242,17 +250,52 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
     return { left: a * ROADMAP_COL + 2, width: (b - a + 1) * ROADMAP_COL - 4 }
   }
 
-  const tip = (name: string, s: BarShape): string =>
-    [
-      name,
-      `Planned ${weekTag(s.plannedStart)} → ${weekTag(s.plannedEnd)} · ${weekLabel(s.plannedStart)} → ${weekLabel(s.plannedEnd)}`,
-      s.started ? `Actual ${weekTag(s.actualStart)} → ${weekTag(s.end)}${s.forecast ? ' (forecast from progress)' : s.status === 'Complete' ? '' : ' (expected)'}` : 'Not started',
-      s.started ? `${s.status}${s.status === 'Complete' ? '' : ` · ${s.progress}%`}${s.reason ? ` · ${s.reason}` : ''}` : '',
-      s.delayWeeks > 0 ? `${lateTag(s)} past the planned end` : '',
-      readOnly ? '' : 'Click to edit this bar',
-    ]
-      .filter(Boolean)
-      .join('\n')
+  /**
+   * The hover plate of a bar: its dates, its status and progress; for a roll-up the mean progress
+   * and how many bars are in each state.
+   */
+  const tipContent = (name: string, s: BarShape, summary: boolean): ReactNode => {
+    const c = s.counts
+    const progressLine = summary
+      ? `${s.status === 'Complete' ? 'Complete' : `Progress ${s.progress}%`}${c ? ` · mean of ${c.total} ${c.total === 1 ? 'bar' : 'bars'}` : ''}`
+      : [s.status === 'Complete' ? 'Complete' : `${s.status} · ${s.progress}%`, s.reason].filter(Boolean).join(' · ')
+    return (
+      <div className="gv-tip">
+        <b>{name}</b>
+        <div>
+          Planned {weekTag(s.plannedStart)} → {weekTag(s.plannedEnd)} · {weekLabel(s.plannedStart)} → {weekLabel(s.plannedEnd)}
+        </div>
+        {s.started ? (
+          <div>
+            Actual {weekTag(s.actualStart)} → {weekTag(s.end)}
+            {s.forecast ? ' (forecast from progress)' : s.status === 'Complete' ? '' : ' (expected)'}
+          </div>
+        ) : (
+          <div>Not started</div>
+        )}
+        {s.started && (
+          <div className="gv-tip-progress">
+            <span>{progressLine}</span>
+            <span className="gv-tip-meter">
+              <i style={{ width: `${s.progress}%` }} />
+            </span>
+          </div>
+        )}
+        {c && (
+          <div className="gv-tip-counts">
+            {COUNT_ROWS.filter((r) => c[r.key] > 0).map((r) => (
+              <div key={r.key} className="gv-tip-row">
+                <span className="gv-key" style={{ '--c': colorOf(statusColor(db, r.status)) } as React.CSSProperties} />
+                {r.label}: {c[r.key]}
+              </div>
+            ))}
+          </div>
+        )}
+        {s.delayWeeks > 0 && <div className="gv-tip-late">{lateTag(s)} past the planned end</div>}
+        {!readOnly && !summary && <div className="gv-tip-hint">Click to edit this bar</div>}
+      </div>
+    )
+  }
 
   /** one bar (or the roll-up) drawn into the row's lane */
   const renderBar = (name: string, s: BarShape, color: string, opts: { summary?: boolean; onClick?: () => void }) => {
@@ -260,7 +303,13 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
     const late = lateTag(s)
     const after: React.ReactNode[] = []
     const cls = (extra: string) => `${extra}${s.started ? '' : ' unstarted'}${opts.summary ? ' summary' : ''}`
-    const common = { style, title: tip(name, s), onClick: opts.onClick }
+    // the dialog (or the team it navigates to) opens over the plate, whose mouseleave then never fires
+    const onClick = opts.onClick && (() => {
+      hideTip()
+      opts.onClick!()
+    })
+    const tipOf = () => attach(tipContent(name, s, !!opts.summary))
+    const common = { style, onClick, ...tipOf() }
     if (s.milestone) {
       // a diamond on the actual week (planned week while not started), the planned week dotted, the text beside it
       const at = s.started ? s.actualStart! : s.plannedStart
@@ -277,7 +326,7 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
             </div>
           )}
           {box && (
-            <div className="gv-after" style={{ left: box.left + box.width }} title={common.title} onClick={opts.onClick}>
+            <div className="gv-after" style={{ left: box.left + box.width }} onClick={onClick} {...tipOf()}>
               {after}
             </div>
           )}
@@ -306,7 +355,7 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
           {fits && label && <span className="gv-act-lbl">{label}</span>}
         </div>
         {after.length > 0 && (
-          <div className="gv-after" style={{ left: box.left + box.width }} title={common.title} onClick={opts.onClick}>
+          <div className="gv-after" style={{ left: box.left + box.width }} onClick={onClick} {...tipOf()}>
             {after}
           </div>
         )}
@@ -344,32 +393,13 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
           </span>
         </span>
       </div>
-      <div className="gv-wrap">
+      <div className="gv-wrap" ref={wrapRef}>
         <table className="gv-table" style={{ width: LABEL + weeks.length * ROADMAP_COL }}>
           <colgroup>
             <col style={{ width: LABEL }} />
             {weeks.map((w) => <col key={w} style={{ width: ROADMAP_COL }} />)}
           </colgroup>
-          <thead>
-            <tr>
-              <th className="gv-lbl">Workstream / activity</th>
-              {weeks.map((w) => {
-                const rel = relByWeek.get(w)
-                const ms = msByWeek.get(w)
-                return (
-                  <th
-                    key={w}
-                    className={`${w === today ? 'today' : ''}${bandWeeks.has(w) ? ' band' : ''}`}
-                    style={bandTint.get(w)}
-                    title={[`${weekTag(w)} · ${weekLabel(w)}`, w === today ? 'this week' : '', rel ? `⚑ ${rel.name} release ${rel.date}` : '', ...(ms ?? []).map((m) => `◆ ${m}`)].filter(Boolean).join('\n')}
-                  >
-                    <div className="gv-wk">{weekTag(w)}</div>
-                    <div className="gv-date">{rel ? <span style={{ color: colorOf(rel.color) }}>⚑</span> : ms ? <span style={{ color: 'var(--ph, var(--danger))' }}>◆</span> : weekLabel(w).split(' ')[0]}</div>
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
+          <TimelineHead weeks={weeks} todayWeek={today} bands={bands} labelClassName="gv-lbl" label="Workstream / activity" />
           <tbody>
             {shownPinned.length > 0 && (
               <tr className="gv-row gv-section">
@@ -379,7 +409,7 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
                   </div>
                 </td>
                 {weeks.map((w) => (
-                  <td key={w} className={`gv-cell${w === today ? ' today' : ''}`} />
+                  <td key={w} className={`gv-cell${w === today ? ' today' : ''}${bands.bandWeeks.has(w) ? ' band' : ''}${bands.monthStarts.has(w) ? ' month-start' : ''}`} style={bands.weekStyle(w)} />
                 ))}
               </tr>
             )}
@@ -398,7 +428,7 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
                     </div>
                   </td>
                   {weeks.map((w, wi) => (
-                    <td key={w} className={`gv-cell${w === today ? ' today' : ''}`}>
+                    <td key={w} className={`gv-cell${w === today ? ' today' : ''}${bands.bandWeeks.has(w) ? ' band' : ''}${bands.monthStarts.has(w) ? ' month-start' : ''}`} style={bands.weekStyle(w)}>
                       {wi === 0 && (
                         <div className="gv-lane" style={{ width: weeks.length * ROADMAP_COL }}>
                           {p.shape ? renderBar(p.name, p.shape, barColorOf, { summary: true, onClick: p.onClick }) : <span className="gv-none hint">no roadmap bars</span>}
@@ -433,7 +463,7 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
                   </div>
                 </td>
                 {weeks.map((w) => (
-                  <td key={w} className={`gv-cell${w === today ? ' today' : ''}`} />
+                  <td key={w} className={`gv-cell${w === today ? ' today' : ''}${bands.bandWeeks.has(w) ? ' band' : ''}${bands.monthStarts.has(w) ? ' month-start' : ''}`} style={bands.weekStyle(w)} />
                 ))}
               </tr>
             )}
@@ -475,8 +505,8 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
                   {weeks.map((w, wi) => (
                     <td
                       key={w}
-                      className={`gv-cell${w === today ? ' today' : ''}${bandWeeks.has(w) ? ' band' : ''}${relByWeek.has(w) ? ' rel' : ''}`}
-                      style={bandTint.get(w)}
+                      className={`gv-cell${w === today ? ' today' : ''}${bands.bandWeeks.has(w) ? ' band' : ''}${bands.relWeeks.has(w) ? ' rel' : ''}${bands.monthStarts.has(w) ? ' month-start' : ''}`}
+                      style={bands.weekStyle(w)}
                       onMouseDown={(e) => {
                         if (readOnly || hasKids || covered.has(w) || e.button !== 0) return
                         // a mousedown on a bar bubbles up through the lane, which lives in the first cell: a click, not a drag-to-add
@@ -579,6 +609,7 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
         />
       )}
       {confirmUI}
+      {tipEl}
     </div>
   )
 }

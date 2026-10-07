@@ -128,14 +128,11 @@
 .gv-bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--border); }
 .gv-wrap { flex: 1; min-height: 0; overflow: auto; }
 .gv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
-.gv-table thead th { position: sticky; top: 0; z-index: 3; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; color: var(--muted); height: 54px; padding: 0; text-align: center; }
-.gv-table thead th.gv-lbl { z-index: 4; text-align: left; padding-left: 10px; font-size: 13px; }
-.gv-table th.today, .gv-table td.today { background: var(--warn-softest); }
+/* the header is the planner's (ui/TimelineHead.tsx, `.tl-head` in styles.css); these are the body cells */
+.gv-table td.today { background: var(--warn-softest); }
 .gv-table td.band { background-color: color-mix(in srgb, var(--ph, var(--danger)) 6%, transparent); }
-.gv-table th.band { background-color: color-mix(in oklch, var(--ph, var(--danger)) 16%, var(--surface)); }
 .gv-table td.rel { box-shadow: inset -2px 0 0 color-mix(in srgb, var(--danger) 45%, transparent); }
-.gv-wk { line-height: 20px; }
-.gv-date { line-height: 20px; font-weight: 400; }
+.gv-table td.month-start { border-left: 2px solid var(--border-strong); }
 .gv-lbl { position: sticky; left: 0; z-index: 2; background: var(--surface); border-right: 1px solid var(--border); }
 .gv-row td { height: 40px; padding: 0; border-bottom: 1px solid var(--border-light); }
 .gv-row.d0 td { height: 46px; }
@@ -146,7 +143,7 @@
 .gv-name .lbl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; font-size: 14px; }
 .gv-actions { display: none; gap: 2px; flex: none; }
 .gv-name:hover .gv-actions { display: inline-flex; }
-.gv-table th.today, .gv-table td.today { box-shadow: inset 2px 0 0 var(--danger); }
+.gv-table td.today { box-shadow: inset 2px 0 0 var(--danger); }
 .gv-cell { position: relative; }
 /* the drag-to-add preview, one slice per week */
 .gv-seg.ghost { position: absolute; top: 15px; height: 18px; left: 1px; right: 1px; border-radius: 4px; opacity: 0.35; pointer-events: none; }
@@ -182,6 +179,16 @@
 .gv-ms { top: 0; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--c, var(--text)); text-shadow: 0 0 2px var(--surface), 0 0 2px var(--surface); pointer-events: auto; cursor: pointer; }
 .gv-ms.unstarted { color: var(--text-3); }
 .gv-ms:hover { filter: brightness(1.15); }
+/* the hover plate (.dash-tip) of a bar: a meter under the progress line, a swatch per counted state */
+.gv-tip { display: flex; flex-direction: column; gap: 3px; }
+.gv-tip-progress { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.gv-tip-meter { display: block; width: 140px; height: 5px; border-radius: 3px; background: color-mix(in srgb, currentColor 25%, transparent); overflow: hidden; }
+.gv-tip-meter i { display: block; height: 100%; background: currentColor; border-radius: 3px; }
+.gv-tip-counts { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.gv-tip-row { display: inline-flex; align-items: center; gap: 6px; }
+.gv-tip-row .gv-key { width: 10px; height: 10px; border-radius: 2px; }
+.gv-tip-late { color: var(--danger); font-weight: 700; }
+.gv-tip-hint { opacity: 0.7; margin-top: 2px; }
 /* the switches and the legend in the toolbar */
 .gv-bar .cv-check { margin-left: 0; }
 .gv-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-3); white-space: nowrap; }

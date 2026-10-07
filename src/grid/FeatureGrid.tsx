@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ExpandedState,
   getCoreRowModel,
@@ -7,7 +7,7 @@ import {
   type ColumnDef,
   type Row as TRow,
 } from '@tanstack/react-table'
-import { AllocEntry, AwayEntry, ClipboardData, DB, Feature, FeatureTracking, KIND_LABEL, Milestone, Story } from '../types'
+import { AllocEntry, AwayEntry, ClipboardData, DB, Feature, FeatureTracking, KIND_LABEL, Story } from '../types'
 import {
   addWeeks,
   awayPct,
@@ -16,9 +16,7 @@ import {
   featureProgress,
   fmtDate,
   fmtNum,
-  isoWeekNum,
   mondayOf,
-  monthGroups,
   peopleById,
   personShort,
   personWeekState,
@@ -36,6 +34,8 @@ import { FRow } from '../rows'
 import { usePersisted } from '../ui/usePersisted'
 import type { JumpTarget } from '../ui/useHashRoute'
 import { TipLayer, type TipHandle } from '../ui/useTip'
+import { TimelineHead } from '../ui/TimelineHead'
+import { useTimelineBands } from '../ui/useTimelineBands'
 import { NumberInput } from '../ui/fields'
 import { CellPopover, RangePopover } from './CellPopover'
 import { ROADMAP_COL } from '../gantt/GanttView'
@@ -133,32 +133,6 @@ interface Props {
   colorOf: (hex: string | undefined) => string | undefined
 }
 
-
-/** A timeline label that shrinks (11px → 8px, up to two lines) until it fits its phase's weeks. */
-function FitLabel({ text }: { text: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const fit = () => {
-      let size = 11
-      el.style.fontSize = `${size}px`
-      while (size > 8 && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) {
-        size -= 0.5
-        el.style.fontSize = `${size}px`
-      }
-    }
-    fit()
-    const ro = new ResizeObserver(fit)
-    ro.observe(el.parentElement ?? el)
-    return () => ro.disconnect()
-  }, [text])
-  return (
-    <div ref={ref} className="phase-name">
-      {text}
-    </div>
-  )
-}
 
 function ProgressBar({ value, title }: { value: number | null; title?: string }) {
   if (value == null) return <span className="muted-dash" title={title ?? 'No estimate / remaining yet'}>—</span>
@@ -552,177 +526,10 @@ export default function FeatureGrid({
   }
 
   // ----- header geometry -----
-  const months = useMemo(() => monthGroups(weeks), [weeks])
-  const monthStarts = useMemo(() => new Set(months.slice(1).map((m) => m.weeks[0])), [months])
   const todayISO = fmtDate(new Date())
   const todayWeek = mondayOf(todayISO)
-
-  /** milestones by the week they fall in; bands mark every week they cover */
-  const { msWeeks, bandWeeks, relWeeks, weekTint } = useMemo(() => {
-    const msWeeks = new Map<string, Milestone[]>()
-    const bandWeeks = new Map<string, string>()
-    /** week → the colour its header tint / edge lines use (a one-day event wins over the phase around it) */
-    const weekTint = new Map<string, string>()
-    for (const m of db.milestones) {
-      const w = mondayOf(m.date)
-      msWeeks.set(w, [...(msWeeks.get(w) ?? []), m])
-      if (!m.end) continue
-      // a milestone's colour is used as picked (the theme palette has no purple, so snapping would grey it)
-      const color = m.color
-      const ws = weekRange(w, mondayOf(m.end))
-      ws.forEach((x, i) => {
-        bandWeeks.set(x, ` band${i === 0 ? ' band-start' : ''}${i === ws.length - 1 ? ' band-end' : ''}`)
-        if (color) weekTint.set(x, color)
-      })
-    }
-    const relWeeks = new Map<string, DB['releases']>()
-    for (const r of db.releases) if (r.date) relWeeks.set(mondayOf(r.date), [...(relWeeks.get(mondayOf(r.date)) ?? []), r])
-    // one-day events (milestones without an end, release dates) are one-week phases of their own, drawn
-    // on top of any phase they fall in (a code stop mid system-test keeps its own colour and edges); the
-    // earliest event in a week sets its colour
-    const oneDay = [
-      ...db.milestones.filter((m) => !m.end).map((m) => ({ date: m.date, color: m.color })),
-      ...db.releases.filter((r) => r.date).map((r) => ({ date: r.date!, color: colorOf(r.color) })),
-    ].sort((a, b) => a.date.localeCompare(b.date))
-    const owned = new Set<string>()
-    for (const ev of oneDay) {
-      const w = mondayOf(ev.date)
-      if (owned.has(w)) continue
-      owned.add(w)
-      bandWeeks.set(w, ' band band-start band-end')
-      if (ev.color) weekTint.set(w, ev.color)
-      else weekTint.delete(w)
-    }
-    return { msWeeks, bandWeeks, relWeeks, weekTint }
-  }, [db.milestones, db.releases, colorOf])
-
-  /**
-   * The phase row under the months: one centred name per phase (a milestone with an end date) across
-   * its weeks, and per one-day event (milestone without an end, release date) on its week. A one-day
-   * event inside a phase cuts it: the event gets its own cell and the phase continues either side of it,
-   * named on its widest segment; the gaps merge into empty cells.
-   */
-  const phaseCells = useMemo(() => {
-    type Point = { week: string; date: string; name: string; text: string; color?: string }
-    type Phase = { start: number; end: number; names: string[]; dates: string[]; color?: string }
-    const idx = new Map(weeks.map((w, i) => [w, i]))
-    const clampIdx = (w: string, side: 'start' | 'end') => {
-      if (idx.has(w)) return idx.get(w)!
-      return side === 'start' ? (w < weeks[0] ? 0 : -1) : w > weeks[weeks.length - 1] ? weeks.length - 1 : -1
-    }
-    const phases: Phase[] = []
-    for (const m of db.milestones) {
-      if (!m.end) continue
-      const a = clampIdx(mondayOf(m.date), 'start')
-      const b = clampIdx(mondayOf(m.end), 'end')
-      if (a < 0 || b < 0 || a > b) continue
-      phases.push({ start: a, end: b, names: [m.name], dates: [`${weekLabel(m.date)} – ${weekLabel(m.end)}`], color: m.color })
-    }
-    phases.sort((x, y) => x.start - y.start)
-    const merged: Phase[] = []
-    for (const ph of phases) {
-      const last = merged[merged.length - 1]
-      if (last && ph.start <= last.end) {
-        last.end = Math.max(last.end, ph.end)
-        last.names.push(...ph.names)
-        last.dates.push(...ph.dates)
-      } else merged.push(ph)
-    }
-    const points: Point[] = [
-      ...db.milestones
-        .filter((m) => !m.end)
-        .map((m) => ({ week: mondayOf(m.date), date: m.date, name: m.name, text: `${m.name} ${weekLabel(m.date)}`, color: m.color })),
-      ...db.releases
-        .filter((r) => r.date)
-        .map((r) => ({ week: mondayOf(r.date!), date: r.date!, name: `${r.name} release`, text: `${r.name} release ${weekLabel(r.date!)}`, color: colorOf(r.color) })),
-    ]
-    const loose = new Map<number, Point[]>()
-    for (const pt of points) {
-      const i = idx.get(pt.week)
-      if (i == null) continue
-      loose.set(i, [...(loose.get(i) ?? []), pt])
-    }
-    type Edges = { start: boolean; end: boolean }
-    type Cell =
-      | { kind: 'phase'; span: number; key: string; name: string; color?: string; title: string; label: boolean; edges: Edges }
-      | { kind: 'empty'; span: number; key: string }
-    /** the phase's segments between the one-day events inside it; the name goes on the widest */
-    const labelAt = new Map<Phase, number>()
-    for (const ph of merged) {
-      let best: { start: number; end: number } | undefined
-      let s = ph.start
-      for (let k = ph.start; k <= ph.end + 1; k++) {
-        if (k <= ph.end && !loose.has(k)) continue
-        if (k > s && (!best || k - 1 - s > best.end - best.start)) best = { start: s, end: k - 1 }
-        s = k + 1
-      }
-      if (best) labelAt.set(ph, best.start)
-    }
-    const cells: Cell[] = []
-    let i = 0
-    while (i < weeks.length) {
-      const pts = loose.get(i)
-      if (pts) {
-        const sorted = [...pts].sort((a, b) => a.date.localeCompare(b.date))
-        const name = sorted.map((x) => x.name).join(' · ')
-        cells.push({ kind: 'phase', span: 1, key: weeks[i], name, color: sorted.find((x) => x.color)?.color, title: sorted.map((x) => x.text).join('\n'), label: true, edges: { start: true, end: true } })
-        i++
-        continue
-      }
-      const ph = merged.find((x) => i >= x.start && i <= x.end)
-      if (ph) {
-        let j = i
-        while (j < ph.end && !loose.has(j + 1)) j++
-        const name = ph.names.join(' · ')
-        // title only on the label; the dates are in the tooltip
-        cells.push({
-          kind: 'phase', span: j - i + 1, key: weeks[i], name, color: ph.color, title: `${name}\n${ph.dates.join('\n')}`,
-          label: labelAt.get(ph) === i, edges: { start: i === ph.start, end: j === ph.end },
-        })
-        i = j + 1
-        continue
-      }
-      let j = i
-      // an empty run also stops at a month start, so the month line runs through this row too
-      while (j < weeks.length && !loose.has(j) && !merged.some((x) => x.start === j) && !(j > i && monthStarts.has(weeks[j]))) j++
-      cells.push({ kind: 'empty', span: j - i, key: weeks[i] })
-      i = j
-    }
-    return cells
-  }, [weeks, db.milestones, db.releases, colorOf, monthStarts])
-
-  // A phase edge on a month boundary replaces the month line: `next-month` drops a phase's right
-  // edge when the next week starts a month, `after-band` colours that month border instead.
-  const endsBand = useCallback((w: string | undefined) => !!w && !!bandWeeks.get(w)?.includes('band-end'), [bandWeeks])
-  const weekClass = useCallback(
-    (w: string) => {
-      const band = bandWeeks.get(w) ?? ''
-      const next = addWeeks(w, 1)
-      const prev = addWeeks(w, -1)
-      return `cell-week${monthStarts.has(w) ? ' month-start' : ''}${w === todayWeek ? ' today-col' : ''}${band}${
-        band.includes('band-end') && monthStarts.has(next) ? ' next-month' : ''
-      }${monthStarts.has(w) && endsBand(prev) ? ' after-band' : ''}`
-    },
-    [monthStarts, todayWeek, bandWeeks, endsBand],
-  )
-  /** Timeline-row cells get the same edge / month-line classes as the week columns below them. */
-  const timelineClass = (first: string, span: number, edges: { start: boolean; end: boolean } | null) => {
-    const last = addWeeks(first, span - 1)
-    const monthStart = monthStarts.has(first)
-    return `${edges ? `phase-cell band${edges.start ? ' band-start' : ''}${edges.end ? ' band-end' : ''}` : 'phase-empty'}${monthStart ? ' month-start' : ''}${
-      edges?.end && monthStarts.has(addWeeks(last, 1)) ? ' next-month' : ''
-    }${monthStart && endsBand(addWeeks(first, -1)) ? ' after-band' : ''}`
-  }
-  const weekStyle = useCallback(
-    (w: string) => {
-      const own = weekTint.get(w)
-      const prev = addWeeks(w, -1)
-      const prevTint = monthStarts.has(w) && endsBand(prev) ? weekTint.get(prev) : undefined
-      if (!own && !prevTint) return undefined
-      return { ...(own ? { '--ph': own } : {}), ...(prevTint ? { '--ph-prev': prevTint } : {}) } as React.CSSProperties
-    },
-    [weekTint, monthStarts, endsBand],
-  )
+  const bands = useTimelineBands(weeks, todayWeek, db.milestones, db.releases, colorOf)
+  const { weekClass, weekStyle } = bands
 
   const columns = useMemo<ColumnDef<FRow>[]>(() => [{ id: 'label' }], [])
   const table = useReactTable({
@@ -1106,74 +913,30 @@ export default function FeatureGrid({
               <col key={w} style={{ width: colW }} />
             ))}
           </colgroup>
-          <thead>
-            <tr className="month-row">
-              <th className="lbl-col" rowSpan={3}>
-                <div className="flbl flbl-head">
-                  <span className="flbl-name" style={{ width: nameW - 16 }}>
-                    <input
-                      className="search-input lbl-search"
-                      type="search"
-                      placeholder="Search packages, features, people…"
-                      value={search}
-                      onChange={(e) => onSearchChange(e.target.value)}
-                    />
+          <TimelineHead
+            weeks={weeks}
+            todayWeek={todayWeek}
+            bands={bands}
+            labelClassName="lbl-col"
+            label={
+              <div className="flbl flbl-head">
+                <span className="flbl-name" style={{ width: nameW - 16 }}>
+                  <input
+                    className="search-input lbl-search"
+                    type="search"
+                    placeholder="Search packages, features, people…"
+                    value={search}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                  />
+                </span>
+                {fields.map((f) => (
+                  <span key={f.id} className={`fcell fhead f-${f.id}`} style={{ width: f.w }} title={f.title}>
+                    {f.label}
                   </span>
-                  {fields.map((f) => (
-                    <span key={f.id} className={`fcell fhead f-${f.id}`} style={{ width: f.w }} title={f.title}>
-                      {f.label}
-                    </span>
-                  ))}
-                </div>
-              </th>
-              {months.map((g, i) => (
-                <th key={g.key} colSpan={g.weeks.length} className={`month-head${i % 2 ? ' alt' : ''}`}>
-                  {g.label}
-                </th>
-              ))}
-            </tr>
-            <tr className="timeline-row">
-              {phaseCells.map((c) =>
-                c.kind === 'phase' ? (
-                  <th
-                    key={c.key}
-                    colSpan={c.span}
-                    className={timelineClass(c.key, c.span, c.edges)}
-                    title={c.title}
-                    style={{ ...weekStyle(c.key), ...(c.color ? { '--ph': c.color } : {}) } as React.CSSProperties}
-                  >
-                    {c.label && <FitLabel text={c.name} />}
-                  </th>
-                ) : (
-                  <th key={c.key} colSpan={c.span} className={timelineClass(c.key, c.span, null)} style={weekStyle(c.key)} />
-                ),
-              )}
-            </tr>
-            <tr className="week-row">
-              {weeks.map((w) => {
-                const ms = msWeeks.get(w) ?? []
-                const rel = relWeeks.get(w) ?? []
-                // the phase row names these; the week header keeps W## + date
-                const tip = [
-                  `ISO week ${isoWeekNum(w)} · week of ${w}`,
-                  ...rel.map((r) => `🏁 ${r.name} release · ${r.date}`),
-                  ...ms.map((m) => `◆ ${m.name} · ${m.date}${m.end ? ` → ${m.end}` : ''}`),
-                ].join('\n')
-                return (
-                  <th key={w} title={tip} className={weekClass(w)} style={weekStyle(w)}>
-                    <div className="week-head">
-                      <div>{weekTag(w)}</div>
-                      {w === todayWeek ? (
-                        <div className="week-head-chip"><span className="today-chip">today</span></div>
-                      ) : (
-                        <div className="week-head-date">{weekLabel(w)}</div>
-                      )}
-                    </div>
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
+                ))}
+              </div>
+            }
+          />
           <tbody>
             {rows.map((tr) => (
               <GridRow
