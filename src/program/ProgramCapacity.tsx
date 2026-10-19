@@ -513,12 +513,12 @@ export default function ProgramCapacity({ teams, program, todayISO, colorOf, scr
           </div>
           <div className="cv-risks">
             <div>
-              <h3>Booked beyond estimate · {negative.length}</h3>
+              <h3>Over budget · {negative.length}</h3>
               {negative.length === 0 && <p className="hint">None.</p>}
               {negative.map((x) => featureLine(x, <span className="bal neg">{Math.round(balanceOf(x) ?? 0)}h</span>))}
             </div>
             <div>
-              <h3>Work left, nobody booked from today · {unstaffed.length}</h3>
+              <h3>Not started · {unstaffed.length}</h3>
               {unstaffed.length === 0 && <p className="hint">None.</p>}
               {unstaffed.map((x) => featureLine(x, <span className="hint">{fmtNum(x.feature.remaining ?? x.feature.estimate ?? 0)}h</span>))}
             </div>

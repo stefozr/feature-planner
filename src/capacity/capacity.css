@@ -188,6 +188,10 @@
 .gv-tip-row { display: inline-flex; align-items: center; gap: 6px; }
 .gv-tip-row .gv-key { width: 10px; height: 10px; border-radius: 2px; }
 .gv-tip-late { color: var(--danger); font-weight: 700; }
+/* the team's milestones ◆ and releases ⚑ listed under its roll-up */
+.gv-tip-markers { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.gv-tip-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; }
+.gv-tip-glyph { width: 10px; text-align: center; text-shadow: 0 0 2px var(--surface); }
 .gv-tip-hint { opacity: 0.7; margin-top: 2px; }
 /* the switches and the legend in the toolbar */
 .gv-bar .cv-check { margin-left: 0; }
@@ -203,5 +207,6 @@
 .gv-row.gv-section .lbl-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); }
 .gv-row.gv-pinned .gv-lbl { background: var(--surface); }
 .gv-none { position: absolute; left: 8px; top: 0; line-height: 46px; }
+.gv-row:not(.d0) .gv-none { line-height: 40px; }
 .gv-mark { position: absolute; bottom: 0; height: 16px; line-height: 16px; text-align: center; font-size: 12px; pointer-events: auto; cursor: default; text-shadow: 0 0 2px var(--surface); }
 .gv-band { position: absolute; bottom: 3px; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--ph, var(--danger)) 18%, transparent); pointer-events: auto; }

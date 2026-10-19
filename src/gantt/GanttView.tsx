@@ -40,6 +40,17 @@ export interface PinnedRow {
   milestones: Milestone[]
   title?: string
   onClick?: () => void
+  /** the bar's own colour (a feature's status colour); unset → the roadmap status colour */
+  barColor?: string
+  /** rows folded under this one (the Program: a team's packages, then their features); the top row's caret opens them */
+  children?: PinnedRow[]
+}
+
+/** the markers and the click hint a bar's hover plate can carry besides its dates */
+interface TipExtras {
+  markers?: { releases: Release[]; milestones: Milestone[] }
+  /** replaces "Click to edit this bar" */
+  hint?: string
 }
 
 /** Week column width; the rows and type in capacity.css are sized to match, and the planner's Gantt view uses it too. */
@@ -93,6 +104,9 @@ interface RowBars {
 export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned, onShowPlanned, update, pinned = [], pinnedLabel, extraWeeks }: Props) {
   const [collapsed, setCollapsed] = usePersisted<Record<string, boolean>>('feature-planner:ganttCollapsed', {})
   const [lateOnly, setLateOnly] = usePersisted<boolean>('feature-planner:roadmapLateOnly', false)
+  // the pinned tree's folds, by row id (team-prefixed, so they never collide with workstream ids); unset → a top row is closed, a deeper one open
+  const [pinnedOpen, setPinnedOpen] = usePersisted<Record<string, boolean>>('feature-planner:programPinnedOpen', {})
+  const isPinnedOpen = (id: string, depth: number) => pinnedOpen[id] ?? depth > 0
   const [dialog, setDialog] = useState<Dialog>(null)
   const [drag, setDrag] = useState<Drag>(null)
   const dragRef = useRef<Drag>(null)
@@ -171,7 +185,19 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
     return !!rb?.own.some((o) => isLateOrStuck(o.shape))
   }
   const visible: Node[] = []
-  const shownPinned = lateOnly ? pinned.filter((p) => p.shape && isLateOrStuck(p.shape)) : pinned
+  // the pinned rows as drawn: under "Late / blocked only" a row stays when its bar is late or stuck, or a
+  // descendant's is (a team with a late feature stays, as a workstream with a late activity does); closed
+  // rows hide their children
+  const keepPinned = (p: PinnedRow): boolean => !lateOnly || (!!p.shape && isLateOrStuck(p.shape)) || (p.children ?? []).some(keepPinned)
+  const shownPinned: { row: PinnedRow; depth: number }[] = []
+  const walkPinned = (rows: PinnedRow[], depth: number) => {
+    for (const p of rows) {
+      if (!keepPinned(p)) continue
+      shownPinned.push({ row: p, depth })
+      if (p.children?.length && isPinnedOpen(p.id, depth)) walkPinned(p.children, depth + 1)
+    }
+  }
+  walkPinned(pinned, 0)
   const walk = (nodes: Node[]) => {
     for (const n of nodes) {
       if (!keep(n)) continue
@@ -240,7 +266,19 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
       ;[d.workstreams[a], d.workstreams[b]] = [d.workstreams[b], d.workstreams[a]]
     })
 
-  const collapseAll = (on: boolean) => setCollapsed(on ? Object.fromEntries(db.workstreams.filter((w) => db.workstreams.some((c) => c.parentId === w.id)).map((w) => [w.id, true])) : {})
+  const collapseAll = (on: boolean) => {
+    setCollapsed(on ? Object.fromEntries(db.workstreams.filter((w) => db.workstreams.some((c) => c.parentId === w.id)).map((w) => [w.id, true])) : {})
+    const folds: Record<string, boolean> = {}
+    const mark = (rows: PinnedRow[]) => {
+      for (const p of rows) {
+        if (!p.children?.length) continue
+        folds[p.id] = !on
+        mark(p.children)
+      }
+    }
+    mark(pinned)
+    setPinnedOpen(folds)
+  }
 
   /** left edge and width, in px, of a span of weeks — clipped to the timeline */
   const spanBox = (from: string, to: string): { left: number; width: number } | null => {
@@ -254,8 +292,10 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
    * The hover plate of a bar: its dates, its status and progress; for a roll-up the mean progress
    * and how many bars are in each state.
    */
-  const tipContent = (name: string, s: BarShape, summary: boolean): ReactNode => {
+  const tipContent = (name: string, s: BarShape, summary: boolean, extras: TipExtras = {}): ReactNode => {
     const c = s.counts
+    const milestones = [...(extras.markers?.milestones ?? [])].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+    const releases = (extras.markers?.releases ?? []).filter((r) => !!r.date).sort((a, b) => (a.date! < b.date! ? -1 : a.date! > b.date! ? 1 : 0))
     const progressLine = summary
       ? `${s.status === 'Complete' ? 'Complete' : `Progress ${s.progress}%`}${c ? ` · mean of ${c.total} ${c.total === 1 ? 'bar' : 'bars'}` : ''}`
       : [s.status === 'Complete' ? 'Complete' : `${s.status} · ${s.progress}%`, s.reason].filter(Boolean).join(' · ')
@@ -292,13 +332,36 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
           </div>
         )}
         {s.delayWeeks > 0 && <div className="gv-tip-late">{lateTag(s)} past the planned end</div>}
-        {!readOnly && !summary && <div className="gv-tip-hint">Click to edit this bar</div>}
+        {milestones.length > 0 && (
+          <div className="gv-tip-markers">
+            <span className="gv-tip-head">Milestones</span>
+            {milestones.map((m) => (
+              <div key={m.id} className="gv-tip-row">
+                <span className="gv-tip-glyph" style={{ color: m.color ?? 'var(--danger)' }}>◆</span>
+                {m.name} · {m.date}
+                {m.end ? ` → ${m.end}` : ''}
+              </div>
+            ))}
+          </div>
+        )}
+        {releases.length > 0 && (
+          <div className="gv-tip-markers">
+            <span className="gv-tip-head">Releases</span>
+            {releases.map((r) => (
+              <div key={r.id} className="gv-tip-row">
+                <span className="gv-tip-glyph" style={{ color: colorOf(r.color) }}>⚑</span>
+                {r.name} · {r.date}
+              </div>
+            ))}
+          </div>
+        )}
+        {extras.hint ? <div className="gv-tip-hint">{extras.hint}</div> : !readOnly && !summary && <div className="gv-tip-hint">Click to edit this bar</div>}
       </div>
     )
   }
 
   /** one bar (or the roll-up) drawn into the row's lane */
-  const renderBar = (name: string, s: BarShape, color: string, opts: { summary?: boolean; onClick?: () => void }) => {
+  const renderBar = (name: string, s: BarShape, color: string, opts: { summary?: boolean; onClick?: () => void } & TipExtras) => {
     const style = { '--c': color } as React.CSSProperties
     const late = lateTag(s)
     const after: React.ReactNode[] = []
@@ -308,7 +371,7 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
       hideTip()
       opts.onClick!()
     })
-    const tipOf = () => attach(tipContent(name, s, !!opts.summary))
+    const tipOf = () => attach(tipContent(name, s, !!opts.summary, opts))
     const common = { style, onClick, ...tipOf() }
     if (s.milestone) {
       // a diamond on the actual week (planned week while not started), the planned week dotted, the text beside it
@@ -413,15 +476,26 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
                 ))}
               </tr>
             )}
-            {shownPinned.map((p) => {
+            {shownPinned.map(({ row: p, depth }) => {
               const color = colorOf(p.color) ?? 'var(--accent)'
-              const barColorOf = p.shape ? (colorOf(statusColor(db, p.shape.status)) ?? color) : color
+              const barColorOf = (p.shape && colorOf(p.barColor ?? statusColor(db, p.shape.status))) ?? color
+              const hasKids = !!p.children?.length
+              // a team's and a package's bar is a thin roll-up; a feature's is a full bar with its progress
+              const summary = depth === 0 || hasKids
+              const markers = depth === 0 ? { releases: p.releases, milestones: p.milestones } : undefined
+              const hint = depth > 0 && !hasKids && p.onClick ? 'Click to open it in the team’s planner' : undefined
               return (
-                <tr key={`pin:${p.id}`} className="gv-row d0 gv-pinned">
+                <tr key={`pin:${p.id}`} className={`gv-row d${Math.min(depth, 3)} gv-pinned`}>
                   <td className="gv-lbl">
-                    <div className="gv-name" style={{ paddingLeft: 6 }}>
-                      <span className="caret-spacer" />
-                      <span className="tag-dot" style={{ background: color }} />
+                    <div className="gv-name" style={{ paddingLeft: 6 + depth * 16 }}>
+                      {hasKids ? (
+                        <button className="caret" aria-label={isPinnedOpen(p.id, depth) ? 'Collapse' : 'Expand'} onClick={() => setPinnedOpen((o) => ({ ...o, [p.id]: !isPinnedOpen(p.id, depth) }))}>
+                          {isPinnedOpen(p.id, depth) ? '▾' : '▸'}
+                        </button>
+                      ) : (
+                        <span className="caret-spacer" />
+                      )}
+                      {depth === 0 && <span className="tag-dot" style={{ background: color }} />}
                       <span className={`lbl-name${p.onClick ? ' lbl-link' : ''}`} title={p.title ?? p.name} onClick={p.onClick}>
                         {p.name}
                       </span>
@@ -431,7 +505,7 @@ export default function GanttView({ db, todayISO, colorOf, readOnly, showPlanned
                     <td key={w} className={`gv-cell${w === today ? ' today' : ''}${bands.bandWeeks.has(w) ? ' band' : ''}${bands.monthStarts.has(w) ? ' month-start' : ''}`} style={bands.weekStyle(w)}>
                       {wi === 0 && (
                         <div className="gv-lane" style={{ width: weeks.length * ROADMAP_COL }}>
-                          {p.shape ? renderBar(p.name, p.shape, barColorOf, { summary: true, onClick: p.onClick }) : <span className="gv-none hint">no roadmap bars</span>}
+                          {p.shape ? renderBar(p.name, p.shape, barColorOf, { summary, onClick: p.onClick, markers, hint }) : <span className="gv-none hint">{depth === 0 ? 'no roadmap bars' : 'no dates'}</span>}
                           {p.milestones
                             .filter((m) => m.end)
                             .map((m) => {

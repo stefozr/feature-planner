@@ -588,12 +588,12 @@ export default function CapacityView({
           </div>
           <div className="cv-risks">
             <div>
-              <h3>Booked beyond estimate · {negative.length}</h3>
+              <h3>Over budget · {negative.length}</h3>
               {negative.length === 0 && <p className="hint">None.</p>}
               {negative.map((f) => featureLine(f, <span className="bal neg">{Math.round(featureBalance(f, s) ?? 0)}h</span>))}
             </div>
             <div>
-              <h3>Work left, nobody booked from today · {unstaffed.length}</h3>
+              <h3>Not started · {unstaffed.length}</h3>
               {unstaffed.length === 0 && <p className="hint">None.</p>}
               {unstaffed.map((f) => featureLine(f, <span className="hint">{fmtNum(f.remaining ?? f.estimate ?? 0)}h</span>))}
             </div>

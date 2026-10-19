@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DB, FeatureTracking, isFinishedStatus } from '../types'
+import { DB, FeatureTracking, isFinishedStatus, optionColor } from '../types'
 import { deleteUndefined, fmtDate } from '../logic'
 import type { PlanProps } from '../Plan'
 import type { Route, View } from '../ui/useHashRoute'
@@ -13,7 +13,7 @@ import { SettingsDialog } from '../ui/Dialogs'
 import { ReleasesDialog } from '../ui/FeatureDialogs'
 import { useConfirm } from '../ui/ConfirmDialog'
 import GanttView, { type PinnedRow } from '../gantt/GanttView'
-import { ProgramFeature, TeamDoc, flattenFeatures, programWeeks, teamCriticalPath, teamMarkers, unionCustomers, unionStatuses } from './aggregate'
+import { ProgramFeature, TeamDoc, flattenFeatures, programWeeks, teamCriticalPath, teamFeatureGroups, teamMarkers, unionCustomers, unionStatuses } from './aggregate'
 import ProgramCapacity from './ProgramCapacity'
 import ProgramStatus from './ProgramStatus'
 import ProgramGrid from './ProgramGrid'
@@ -189,6 +189,25 @@ export default function ProgramPlan({ auth, team, route, navigate, navigateTeam,
         ...teamMarkers(t),
         title: `${t.name} — from its earliest roadmap bar to its latest, planned and actual. Click to open the team's roadmap.`,
         onClick: () => goToTeam(t.id, 'roadmap'),
+        // folded under the team: its packages, each with its features as bars (plan dotted, booked weeks solid)
+        children: teamFeatureGroups(t, todayISO).map((g) => ({
+          id: `${t.id}:${g.epic.id}`,
+          name: [g.epic.key, g.epic.name].filter(Boolean).join(' · '),
+          shape: g.rollup,
+          releases: [],
+          milestones: [],
+          title: `${g.epic.name} — ${g.features.length} ${g.features.length === 1 ? 'feature' : 'features'} of ${t.name}`,
+          children: g.features.map(({ feature: f, shape }) => ({
+            id: `${t.id}:${f.id}`,
+            name: [f.key, f.name].filter(Boolean).join(' · '),
+            shape,
+            barColor: optionColor(t.db.settings.optionColors, 'featureStatuses', f.status ?? ''),
+            releases: [],
+            milestones: [],
+            title: `${f.name}${f.status ? ` · ${f.status}` : ''} — click to open it in ${t.name}'s planner`,
+            onClick: () => goToFeature(t.id, f.id),
+          })),
+        })),
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [painted, todayISO],
@@ -344,7 +363,7 @@ export default function ProgramPlan({ auth, team, route, navigate, navigateTeam,
             <span className="hint">
               {view === 'capacity'
                 ? 'Every team’s availability against what its plan books, in FTE (person-weeks), plus every feature. Click a team or a feature to open it in its own plan; Back returns here.'
-                : 'The top rows are read-only: each team’s roadmap as one bar, with its releases ⚑ and milestones ◆. Below them the Program’s own workstreams, editable.'}
+                : 'The top rows are read-only: each team’s roadmap as one bar, with its releases ⚑ and milestones ◆; open a team for its packages and features. Below them the Program’s own workstreams, editable.'}
             </span>
             <span style={{ flex: 1 }} />
             {refresh}

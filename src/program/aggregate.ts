@@ -1,6 +1,6 @@
-import { DB, Epic, Feature, Milestone, Release, RoadmapStatus } from '../types'
-import { addWeeks, gridWeeks, mondayOf, weekFte, weeksBetween, type WeekFte } from '../logic'
-import { BarCounts, BarShape, barShape, drawnSpan } from '../gantt/bars'
+import { DB, Epic, Feature, Milestone, Release, RoadmapStatus, isBlockedStatus, isFinishedStatus } from '../types'
+import { addWeeks, derivedEndWeek, derivedStartWeek, featureProgress, gridWeeks, mondayOf, scheduleStatus, weekFte, weeksBetween, type WeekFte } from '../logic'
+import { BarCounts, BarShape, barShape, drawnSpan, rollup } from '../gantt/bars'
 
 /**
  * What the Program team computes from the other teams' documents. Everything here is pure: the
@@ -148,6 +148,62 @@ export function teamCriticalPath(team: TeamDoc, todayISO: string): BarShape | nu
 /** a team's dated releases and milestones, for the markers on its critical-path row */
 export function teamMarkers(team: TeamDoc): { releases: Release[]; milestones: Milestone[] } {
   return { releases: team.db.releases.filter((r) => !!r.date), milestones: team.db.milestones }
+}
+
+/**
+ * A feature as a roadmap bar, for the rows under a team's critical path. The plan (`planStart` →
+ * `planEnd`) is the dotted span; the actual one runs from the first booked or stated week to the
+ * last, read as a forecast while the feature is open (today when it is overdue with nothing booked
+ * ahead, like `scheduleStatus`). A missing plan end falls back to the actual one and the other way
+ * round. Finished → Complete at 100%; a Blocked status reads Blocked; otherwise In progress once
+ * started, Planned before. Null when no week can be found at all.
+ */
+export function featureBarShape(f: Feature, todayISO: string): BarShape | null {
+  const today = mondayOf(todayISO)
+  const finished = isFinishedStatus(f.status)
+  const actualStart = derivedStartWeek(f)
+  let actualEnd = derivedEndWeek(f)
+  const plannedStart = f.planStart ?? actualStart
+  const plannedEnd = f.planEnd ?? actualEnd ?? plannedStart
+  if (!plannedStart || !plannedEnd) return null
+  const started = finished ? !!actualStart : !!actualStart && actualStart <= today
+  if (started && !finished && f.planEnd && today > f.planEnd && (!actualEnd || actualEnd < today)) actualEnd = today
+  if (started && (!actualEnd || actualEnd < actualStart!)) actualEnd = actualStart
+  const progress = Math.round((featureProgress(f) ?? 0) * 100)
+  const status: RoadmapStatus = finished ? 'Complete' : isBlockedStatus(f.status) ? 'Blocked' : started ? 'In progress' : 'Planned'
+  const sched = f.planEnd ? scheduleStatus(f, todayISO) : null
+  return {
+    plannedStart: plannedStart < plannedEnd ? plannedStart : plannedEnd,
+    plannedEnd: plannedEnd > plannedStart ? plannedEnd : plannedStart,
+    started,
+    status,
+    actualStart: started ? actualStart : undefined,
+    end: started ? actualEnd : undefined,
+    delayWeeks: started && sched ? Math.max(0, sched.weeks) : 0,
+    progress,
+    forecast: false,
+    label: `${progress}%`,
+    milestone: false,
+  }
+}
+
+/** one package of a team with its features as bars, and the roll-up over them */
+export interface TeamFeatureGroup {
+  epic: Epic
+  rollup: BarShape | null
+  features: { feature: Feature; shape: BarShape | null }[]
+}
+
+/** a team's features grouped by package, in document order, for the rows under its critical path; packages without features are left out */
+export function teamFeatureGroups(team: TeamDoc, todayISO: string): TeamFeatureGroup[] {
+  const byEpic = new Map<string, Feature[]>()
+  for (const f of team.db.features) (byEpic.get(f.epicId) ?? byEpic.set(f.epicId, []).get(f.epicId)!).push(f)
+  return team.db.epics
+    .filter((e) => byEpic.has(e.id))
+    .map((epic) => {
+      const features = byEpic.get(epic.id)!.map((feature) => ({ feature, shape: featureBarShape(feature, todayISO) }))
+      return { epic, rollup: rollup(features.map((x) => x.shape).filter((s): s is BarShape => !!s)), features }
+    })
 }
 
 /** the statuses in use across the teams, in team order, each once */

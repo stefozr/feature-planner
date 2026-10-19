@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { DB } from '../types'
-import { featureFte, flattenFeatures, programKey, programWeeks, teamCriticalPath, teamLoad, unionStatuses } from './aggregate'
+import type { DB, Feature } from '../types'
+import { featureBarShape, featureFte, flattenFeatures, programKey, programWeeks, teamCriticalPath, teamFeatureGroups, teamLoad, unionStatuses } from './aggregate'
 import type { TeamDoc } from './aggregate'
 
 // Mondays: W25 = 2026-06-15 … W30 = 2026-07-20
@@ -141,5 +141,71 @@ describe('small helpers', () => {
     const a = team('a', doc({ settings: { ...doc().settings, featureStatuses: ['New', 'Closed'] } }))
     const b = team('b', doc({ settings: { ...doc().settings, featureStatuses: ['In Review', 'Closed'] } }))
     expect(unionStatuses([a, b])).toEqual(['New', 'Closed', 'In Review'])
+  })
+})
+
+describe('featureBarShape', () => {
+  const W27 = '2026-06-29'
+  const W29 = '2026-07-13'
+  const f = (over: Partial<Feature>): Feature => ({ id: 'f', epicId: 'e', name: 'F', cells: {}, ...over })
+  const booked = (...weeks: string[]) => Object.fromEntries(weeks.map((w) => [w, { entries: [{ id: w, personId: 'p', pct: 100, kind: 'dev' as const }] }]))
+
+  it('is null without any week to draw', () => {
+    expect(featureBarShape(f({}), TODAY)).toBeNull()
+  })
+
+  it('a finished feature is Complete at 100% over its booked weeks', () => {
+    const s = featureBarShape(f({ status: 'Closed', planStart: W25, planEnd: W26, cells: booked(W25, W26) }), TODAY)!
+    expect(s).toMatchObject({ started: true, status: 'Complete', progress: 100, actualStart: W25, end: W26, plannedStart: W25, plannedEnd: W26, delayWeeks: 0 })
+  })
+
+  it('an open feature reads its progress from the hours and its delay from the plan', () => {
+    const s = featureBarShape(f({ status: 'In development', planStart: W25, planEnd: W26, estimate: 100, remaining: 40, cells: booked(W25, W28) }), TODAY)!
+    expect(s.status).toBe('In progress')
+    expect(s.progress).toBe(60)
+    expect(s.end).toBe(W28)
+    expect(s.delayWeeks).toBe(2) // W28 against a planned end of W26
+  })
+
+  it('an overdue feature with nothing booked ahead runs to today', () => {
+    const s = featureBarShape(f({ status: 'In development', planStart: W25, planEnd: W25, cells: booked(W25) }), TODAY)!
+    expect(s.end).toBe(W27)
+    expect(s.delayWeeks).toBe(2)
+  })
+
+  it('a Blocked status paints the bar Blocked', () => {
+    expect(featureBarShape(f({ status: 'Blocked', cells: booked(W26) }), TODAY)!.status).toBe('Blocked')
+  })
+
+  it('a plan with nothing booked is an unstarted bar; booked weeks in the future do not start it', () => {
+    const planned = featureBarShape(f({ planStart: W28, planEnd: W29 }), TODAY)!
+    expect(planned).toMatchObject({ started: false, status: 'Planned', plannedStart: W28, plannedEnd: W29, progress: 0 })
+    expect(planned.actualStart).toBeUndefined()
+    expect(featureBarShape(f({ cells: booked(W28, W29) }), TODAY)!).toMatchObject({ started: false, plannedStart: W28, plannedEnd: W29 })
+  })
+
+  it('a missing plan end falls back to the booked end', () => {
+    const s = featureBarShape(f({ planStart: W25, cells: booked(W25, W26) }), TODAY)!
+    expect(s.plannedEnd).toBe(W26)
+    expect(s.delayWeeks).toBe(0)
+  })
+})
+
+describe('teamFeatureGroups', () => {
+  it('groups by package in document order, drops empty packages and rolls up', () => {
+    const db = doc({
+      epics: [{ id: 'empty', name: 'Empty' }, { id: 'e1', name: 'One' }, { id: 'e2', name: 'Two' }],
+      features: [
+        { id: 'a', epicId: 'e2', name: 'A', status: 'Closed', planStart: W25, planEnd: W25, startWeek: W25, endWeek: W25, cells: {} },
+        { id: 'b', epicId: 'e1', name: 'B', planStart: W28, planEnd: W30, cells: {} },
+        { id: 'c', epicId: 'e2', name: 'C', cells: {} },
+      ],
+    })
+    const groups = teamFeatureGroups(team('t', db), TODAY)
+    expect(groups.map((g) => g.epic.id)).toEqual(['e1', 'e2'])
+    expect(groups[0].features.map((x) => x.feature.id)).toEqual(['b'])
+    expect(groups[0].rollup).toMatchObject({ started: false, plannedStart: W28, plannedEnd: W30 })
+    expect(groups[1].features.map((x) => x.shape && x.shape.status)).toEqual(['Complete', null])
+    expect(groups[1].rollup).toMatchObject({ status: 'Complete', counts: expect.objectContaining({ total: 1, complete: 1 }) })
   })
 })
